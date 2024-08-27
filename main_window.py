@@ -7,119 +7,99 @@ from PyQt5.QtCore import QTimer
 from PyQt5 import uic
 from serial_controller import SerialController
 from data_processor import DataProcessor
+import re  # 추가된 부분: 정규 표현식을 사용하기 위해 import
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.serial_controller = SerialController(self)
-        # UI 파일 경로 설정
+        self.serial_controller = SerialController()
         ui_path = os.path.join(os.path.dirname(__file__), 'main_window.ui')
         uic.loadUi(ui_path, self)
 
         # UI 요소에 접근
-        self.port_combo = self.findChild(QComboBox, 'comboBox')
-        self.baudrate_combo = self.findChild(QComboBox, 'comboBox_2')
-        self.connect_button = self.findChild(QPushButton, 'pushButton')
-        self.log_output = self.findChild(QTextEdit, 'textEdit')  # QTextEdit 객체에 접근
+        self.port_combo1 = self.findChild(QComboBox, 'comboBox')  # 포트1
+        self.baudrate_combo1 = self.findChild(QComboBox, 'comboBox_2')
+        self.connect_button1 = self.findChild(QPushButton, 'pushButton')
+
+        self.port_combo2 = self.findChild(QComboBox, 'comboBox_3')  # 포트2
+        self.baudrate_combo2 = self.findChild(QComboBox, 'comboBox_4')
+        self.connect_button2 = self.findChild(QPushButton, 'pushButton_2')
+
+        self.log_output = self.findChild(QTextEdit, 'textEdit')
         self.command_input = self.findChild(QLineEdit, 'lineEdit_2')
+
+        # QLCDNumber 요소를 GUI에서 불러오기
         self.lcd_pressure = self.findChild(QLCDNumber, 'lcdNumber')
         self.lcd_temperature = self.findChild(QLCDNumber, 'lcdNumber_2')
         self.lcd_QNH = self.findChild(QLCDNumber, 'lcdNumber_3')
         self.lcd_QFE = self.findChild(QLCDNumber, 'lcdNumber_4')
         self.lcd_QFF = self.findChild(QLCDNumber, 'lcdNumber_5')
+        self.lcd_port2_first = self.findChild(QLCDNumber, 'lcdNumber_6')  # 포트 2의 첫 번째 값
+        self.lcd_port2_rest = self.findChild(QLCDNumber, 'lcdNumber_7')   # 포트 2의 나머지 값
 
-        # 소수점 자릿수 설정
-        self.lcd_pressure.setDigitCount(7)
-        self.lcd_temperature.setDigitCount(7)
-        self.lcd_QNH.setDigitCount(7)
-        self.lcd_QFE.setDigitCount(7)
-        self.lcd_QFF.setDigitCount(7)
-
-        # QLCDNumber 스타일 및 크기 설정
-        lcd_style = "QLCDNumber { font-weight: bold; color: black; font-size: 24px; }"
-
-        # 각 QLCDNumber에 스타일과 크기 적용
-        self.lcd_pressure.setStyleSheet(lcd_style)
-        self.lcd_pressure.setFixedSize(150, 100)
-
-        self.lcd_temperature.setStyleSheet(lcd_style)
-        self.lcd_temperature.setFixedSize(150, 100)
-
-        self.lcd_QNH.setStyleSheet(lcd_style)
-        self.lcd_QNH.setFixedSize(150, 100)
-
-        self.lcd_QFE.setStyleSheet(lcd_style)
-        self.lcd_QFE.setFixedSize(150, 100)
-
-        self.lcd_QFF.setStyleSheet(lcd_style)
-        self.lcd_QFF.setFixedSize(150, 100)
-
-        # 상태바 설정
-        self.status_bar = self.statusBar()
-        self.status_label = QLabel("")
-        self.status_bar.setStyleSheet("QStatusBar::item {border: none;}")  # 경계선 제거
-        self.status_bar.addPermanentWidget(self.status_label, 1)  # 1로 설정하여 왼쪽 정렬
-
-        # 클래스 인스턴스 생성
-        # self.serial_controller = SerialController()
         self.data_processor = DataProcessor()
 
-        # 추가적인 초기화 작업
-        self.connect_button.clicked.connect(self.toggle_connection)
+        # 각 연결 버튼에 대해 클릭 이벤트 설정
+        self.connect_button1.clicked.connect(lambda: self.toggle_connection(1))
+        self.connect_button2.clicked.connect(lambda: self.toggle_connection(2))
         self.command_input.returnPressed.connect(self.send_command)
 
-        # 상태바 업데이트 타이머 설정
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_status_bar)
-        self.timer.start(1000)  # 1초마다 상태바 업데이트
-
-    def toggle_connection(self):
-        if self.serial_controller.serial_connection and self.serial_controller.serial_connection.is_open:
-            self.serial_controller.disconnect()
-            self.connect_button.setText("Connect")
-            self.append_log("Disconnected")
-            self.update_status_bar()  # 상태바 즉시 업데이트
+    def toggle_connection(self, port_number):
+        if port_number == 1:
+            port = self.port_combo1.currentText()
+            baudrate = int(self.baudrate_combo1.currentText())
+            button = self.connect_button1
         else:
-            port = self.port_combo.currentText()
-            baudrate = int(self.baudrate_combo.currentText())
-            success, message = self.serial_controller.connect(port, baudrate)
+            port = self.port_combo2.currentText()
+            baudrate = int(self.baudrate_combo2.currentText())
+            button = self.connect_button2
+
+        if (port_number == 1 and self.serial_controller.serial_connection1 and self.serial_controller.serial_connection1.is_open) or \
+           (port_number == 2 and self.serial_controller.serial_connection2 and self.serial_controller.serial_connection2.is_open):
+            self.serial_controller.disconnect(port_number)
+            button.setText("Connect")
+            self.append_log(f"Disconnected from Port {port_number}")
+        else:
+            success, message = self.serial_controller.connect(port, baudrate, port_number)
             self.append_log(message)
             if success:
-                self.connect_button.setText("Disconnect")
-                self.update_status_bar()  # 상태바 즉시 업데이트
-                self.start_receiving_thread()
-                self.execute_initial_commands()
+                button.setText("Disconnect")
+                self.start_receiving_thread(port_number)
 
-    def start_receiving_thread(self):
-        self.receiving_thread = threading.Thread(target=self.receive_data_loop, daemon=True)
-        self.receiving_thread.start()
+    def start_receiving_thread(self, port_number):
+        thread = threading.Thread(target=self.receive_data_loop, args=(port_number,), daemon=True)
+        thread.start()
 
-    def receive_data_loop(self):
-        while self.serial_controller.serial_connection and self.serial_controller.serial_connection.is_open:
-            data = self.serial_controller.receive_data()
+    def receive_data_loop(self, port_number):
+        while True:
+            data = self.serial_controller.receive_data(port_number)
             if data:
-                pressure, temperature = self.data_processor.process_data(data)
-                if pressure is not None and temperature is not None:
-                    self.update_lcd_displays(pressure, temperature)
+                if port_number == 1:
+                    pressure, temperature = self.data_processor.process_data(data)
+                    if pressure is not None and temperature is not None:
+                        self.update_lcd_displays(pressure, temperature)
+                        self.calculate_and_display_QNH_QFE_QFF(pressure, temperature)
+                else:
+                    self.process_port2_data(data)
             time.sleep(0.1)
 
-    def execute_initial_commands(self):
-        self.serial_controller.send_command('VERS\r\n')
-        time.sleep(1)  # 1초 대기
-        self.serial_controller.send_command('R\r\n')
-        time.sleep(1)  # 1초 대기
+    def process_port2_data(self, data):
+        """포트 2에서 수신한 데이터를 처리하여 lcdNumber_6과 lcdNumber_7에 표시합니다."""
+        try:
+            # 정규 표현식을 사용하여 문자열에서 숫자만 추출
+            numbers = re.findall(r"[-+]?\d*\.\d+|\d+", data)
+            if len(numbers) >= 2:
+                first_value = float(numbers[0])
+                second_value = float(numbers[1])
+                self.lcd_port2_first.display(first_value)  # 첫 번째 값을 lcdNumber_6에 표시
+                self.lcd_port2_rest.display(second_value)  # 두 번째 값을 lcdNumber_7에 표시
+                self.append_log(f"Port 2 Data: {first_value}, {second_value}")
+            else:
+                self.append_log("Port 2 Data Error: Not enough data received.")
+        except ValueError as e:
+            self.append_log(f"Port 2 Data Parsing Error: {e}")
 
-    def send_command(self):
-        command = self.command_input.text().strip()
-        if command:
-            self.serial_controller.send_command(command + '\r')
-            self.append_log(f"Sent command: {command}")
-            self.command_input.clear()
-
-    def update_lcd_displays(self, pressure, temperature):
-        self.lcd_pressure.display(pressure)
-        self.lcd_temperature.display(temperature)
-
+    def calculate_and_display_QNH_QFE_QFF(self, pressure, temperature):
         # QFE, QNH, QFF 계산
         HS = 200  # 고정된 센서 높이
         HR = 200  # 고정된 기지의 고도
@@ -135,37 +115,33 @@ class MainWindow(QMainWindow):
         self.lcd_QNH.display(QNH)
         self.lcd_QFF.display(QFF)
 
-        self.append_log(f"Received: Pressure={pressure}, Temperature={temperature}, QFE={QFE:.2f}, QNH={QNH:.2f}, QFF={QFF:.2f}")
+        self.append_log(f"Calculated QFE={QFE:.2f}, QNH={QNH:.2f}, QFF={QFF:.2f}")
 
-    def update_status_bar(self):
-        # 현재 시간 가져오기
-        current_time = time.strftime("%Y-%m-%d %H:%M:%S")
+    def send_command(self):
+        command = self.command_input.text().strip()
+        if command:
+            # 명령을 두 포트에 모두 전송 (필요에 따라 수정 가능)
+            self.serial_controller.send_command(command, 1)
+            self.serial_controller.send_command(command, 2)
+            self.append_log(f"Sent command to both ports: {command}")
+            self.command_input.clear()
 
-        # 접속 상태 및 환경 가져오기
-        if self.serial_controller.serial_connection and self.serial_controller.serial_connection.is_open:
-            connection_status = "Connected"
-            port = self.port_combo.currentText()
-            baudrate = self.baudrate_combo.currentText()
-            env_info = f"{port} | {baudrate} bps"
-        else:
-            connection_status = "Disconnected"
-            env_info = "Not connected"
-
-        # 상태바 업데이트
-        self.status_label.setText(f"{connection_status} | {env_info} | Time: {current_time}")
+    def update_lcd_displays(self, pressure, temperature):
+        self.lcd_pressure.display(pressure)
+        self.lcd_temperature.display(temperature)
 
     def append_log(self, message):
-        """QTextEdit에 로그 메시지를 추가하고 자동으로 스크롤."""
         self.log_output.append(message)
-        # self.log_output.ensureCursorVisible()  # 새로운 로그가 추가될 때 스크롤이 아래로 이동
-         # 수직 스크롤바를 최대값으로 설정하여 자동으로 아래로 스크롤
         scrollbar = self.log_output.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
-        
-    def update_button_state(self, connected):
-            if connected:
-                self.connect_button.setText("Disconnect")
-                self.connect_button.setEnabled(True)
-            else:
-                self.connect_button.setText("Connect")
-                self.connect_button.setEnabled(True)
+
+    def update_button_state(self, connected, port_number):
+        if port_number == 1:
+            button = self.connect_button1
+        else:
+            button = self.connect_button2
+
+        if connected:
+            button.setText("Disconnect")
+        else:
+            button.setText("Connect")

@@ -1,62 +1,54 @@
 import serial
 
 class SerialController:
-    def __init__(self, main_window):
-        self.main_window = main_window  
-        self.serial_connection = None
-        self.receive_thread = None  # 초기화
-        self.running = False
-        self.buffer = ""
+    def __init__(self):
+        self.serial_connection1 = None  # 첫 번째 포트
+        self.serial_connection2 = None  # 두 번째 포트
 
-    def connect(self, port, baudrate):
+    def connect(self, port, baudrate, port_number=1):
         try:
-            self.serial_connection = serial.Serial(port, baudrate, timeout=1)
-            return True, f"Connected to {port} at {baudrate} baud."
+            if port_number == 1:
+                self.serial_connection1 = serial.Serial(port, baudrate, timeout=1)
+                return True, f"Connected to {port} at {baudrate} baud (Port 1)."
+            else:
+                self.serial_connection2 = serial.Serial(port, baudrate, timeout=1)
+                return True, f"Connected to {port} at {baudrate} baud (Port 2)."
         except serial.SerialException as e:
             return False, f"Failed to connect: {e}"
 
-    def send_command(self, command):
-        if self.serial_connection and self.serial_connection.is_open:
-            try:
-                command_to_send = command + '\r'
-                self.serial_connection.write(command_to_send.encode())
-                print(f"Sent: {command.strip()}")
-            except serial.SerialException as e:
-                print(f"Failed to send command: {e}")
-        else:
-            print("Serial port is not open. Cannot send command.")
-
-    def receive_data(self):
+    def disconnect(self, port_number=1):
         try:
-            if self.serial_connection and self.serial_connection.is_open:
-                data = self.serial_connection.read_until(b'\n').decode('utf-8').strip()
-                if data:
-                    print(f"Received data: {data}")
-                    return data
-        except (serial.SerialException, UnicodeDecodeError) as e:
-            print(f"Error during serial communication: {e}")
-            if isinstance(e, serial.SerialException):
-                self.disconnect()  # serial.SerialException 발생 시 연결 해제
-                self.main_window.update_button_state(False)  # MainWindow에서 버튼 상태를 변경
-        except AttributeError as e:
-            print(f"AttributeError: {e}. This may occur if the serial connection was closed unexpectedly.")
-        return None
-    
-    def disconnect(self):
-        try:
-            if self.serial_connection and self.serial_connection.is_open:
-                self.serial_connection.close()
-                print("Serial port disconnected.")
-                
+            if port_number == 1 and self.serial_connection1 and self.serial_connection1.is_open:
+                self.serial_connection1.close()
+                print("Serial port 1 disconnected.")
+            elif port_number == 2 and self.serial_connection2 and self.serial_connection2.is_open:
+                self.serial_connection2.close()
+                print("Serial port 2 disconnected.")
         except serial.SerialException as e:
             print(f"Failed to close serial port: {e}")
         except Exception as e:
             print(f"Unexpected error during disconnect: {e}")
-        finally:
-            # receive_thread가 None이 아닌지 확인한 후, is_alive() 호출
-            if hasattr(self, 'receive_thread') and self.receive_thread is not None:
-                if self.receive_thread.is_alive():
-                    self.receive_thread.join()
-                    print("Receive thread terminated.")
-        # GUI 업데이트는 MainWindow에서 처리하도록 알림
-        self.main_window.update_button_state(False)
+
+    def send_command(self, command, port_number=1):
+        serial_connection = self.serial_connection1 if port_number == 1 else self.serial_connection2
+        if serial_connection and serial_connection.is_open:
+            try:
+                serial_connection.write((command + '\r').encode())
+                print(f"Sent: {command.strip()} (Port {port_number})")
+            except serial.SerialException as e:
+                print(f"Failed to send command: {e}")
+        else:
+            print(f"Serial port {port_number} is not open. Cannot send command.")
+
+    def receive_data(self, port_number=1):
+        serial_connection = self.serial_connection1 if port_number == 1 else self.serial_connection2
+        try:
+            if serial_connection and serial_connection.is_open:
+                data = serial_connection.read_until(b'\n').decode('utf-8').strip()
+                if data:
+                    print(f"Received data from Port {port_number}: {data}")
+                    return data
+        except (serial.SerialException, UnicodeDecodeError) as e:
+            print(f"Error during serial communication: {e}")
+            self.disconnect(port_number)
+        return None
