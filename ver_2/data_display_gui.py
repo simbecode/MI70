@@ -1,75 +1,109 @@
 # data_display_gui.py
 
-import sys
-import os
-import threading
 import time
+import logging
 from datetime import datetime, timedelta
 from clickable_label import ClickableLabel
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from data_storage import DataStorage
 from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtCore import QTimer, Qt, pyqtSignal
+from PyQt5.QtGui import QFont
+from PyQt5.QtCore import QTimer, Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QComboBox, QCheckBox, QMessageBox, QDateTimeEdit
 )
 
 class DataDisplayGUI(QtWidgets.QWidget):
-    # 데이터 업데이트를 위한 시그널 정의
-    data_updated = pyqtSignal(dict)
-
-    def __init__(self, data_queue):
+    def __init__(self, data_queue, data_receiver):
         super().__init__()
-
         self.data_queue = data_queue
+        self.dr = data_receiver
         self.ds = DataStorage(base_dir='C:\\Sitech')
 
-        # 최신 데이터 저장용 딕셔너리
+        # latest_data 초기화
         self.latest_data = {
-            'pressure': '-',
-            'temperature_barometer': '-',
-            'humidity': '-',
-            'temperature_humidity': '-',
-            'QNH': '-',
-            'QFE': '-',
-            'QFF': '-'
+            'pressure': 'N/A',
+            'temperature_barometer': 'N/A',
+            'temperature_humidity': 'N/A',
+            'humidity': 'N/A',
+            'QNH': 'N/A',
+            'QFE': 'N/A',
+            'QFF': 'N/A'
         }
 
         self.init_ui()
 
-        # 시그널과 슬롯 연결
-        self.data_updated.connect(self.handle_data_updated)
+        # 상태 확인 타이머 설정
+        self.status_timer = QTimer()
+        self.status_timer.timeout.connect(self.check_sensor_status)
+        self.status_timer.start(1000)  # 1초마다 상태 확인
 
-        # 데이터 처리 스레드 시작
-        self.data_thread = threading.Thread(target=self.handle_data)
-        self.data_thread.daemon = True
-        self.data_thread.start()
+        self.dr.data_callback = self.handle_new_data
+        
+    @pyqtSlot(dict)
+    def handle_new_data(self, data):
+        # _update_latest_data를 직접 호출합니다.
+        self._update_latest_data(data)
+        
+    def _update_latest_data(self, data):
+        if data['sensor'] == '기압계':
+            self.latest_data['pressure'] = data.get('pressure', 'N/A')
+            self.latest_data['temperature_barometer'] = data.get('temperature', 'N/A')
+        elif data['sensor'] == '습도계':
+            self.latest_data['temperature_humidity'] = data.get('temperature', 'N/A')
+            self.latest_data['humidity'] = data.get('humidity', 'N/A')
+        elif data['sensor'] == '계산값':
+            self.latest_data['QNH'] = data.get('QNH', 'N/A')
+            self.latest_data['QFE'] = data.get('QFE', 'N/A')
+            self.latest_data['QFF'] = data.get('QFF', 'N/A')
+            
+                # 라벨 업데이트
+        self.label_pressure.setText(str(self.latest_data['pressure']))
+        self.label_temperature_barometer.setText(str(self.latest_data['temperature_barometer']))
+        self.label_temperature_humidity.setText(str(self.latest_data['temperature_humidity']))
+        self.label_humidity.setText(str(self.latest_data['humidity']))
+        self.label_qnh.setText(str(self.latest_data['QNH']))
+        self.label_qfe.setText(str(self.latest_data['QFE']))
+        self.label_qff.setText(str(self.latest_data['QFF']))
+            
+    def check_sensor_status(self):
+        # 각 센서의 상태를 확인하고 UI 업데이트
+        for sensor_name in self.dr.connection_status.keys():
+            is_connected = self.dr.connection_status[sensor_name]
 
+            # 상태에 따른 색상 결정
+            if is_connected:
+                color = 'blue'  # 정상 상태
+            else:
+                color = 'red'  # 포트 연결 끊김 또는 데이터 미수신
+
+            # 해당 센서의 라벨 색상 업데이트
+            self.update_label_color(sensor_name, color)
+
+    def update_label_color(self, sensor_name, color):
+        # 라벨의 스타일 시트를 업데이트하여 색상 변경
+        if sensor_name == '기압계':
+            self.label_pressure.setStyleSheet(f"color: {color}; font-weight: bold;")
+            self.label_temperature_barometer.setStyleSheet(f"color: {color}; font-weight: bold;")
+        elif sensor_name == '습도계':
+            self.label_humidity.setStyleSheet(f"color: {color}; font-weight: bold;")
+            self.label_temperature_humidity.setStyleSheet(f"color: {color}; font-weight: bold;")
+        # 계산된 값의 색상도 변경하고 싶다면 추가적인 로직을 작성하세요.
+        
     def init_ui(self):
         self.setWindowTitle("실시간 데이터 표시")
 
         main_layout = QVBoxLayout()
 
-        # 스타일 시트 설정
-        self.setStyleSheet("""
-            QLabel {
-                font-size: 16px;
-            }
-            QGroupBox {
-                font-size: 18px;
-                font-weight: bold;
-            }
-        """)
-
         # 기압계 그룹 박스
         barometer_group = QtWidgets.QGroupBox("기압계")
         barometer_layout = QHBoxLayout()
-        self.label_pressure = ClickableLabel(self.latest_data['pressure'])
-        self.label_pressure.setStyleSheet("font-size: 20px; color: blue; font-weight: bold;")
-        self.label_temperature_barometer = ClickableLabel(self.latest_data['temperature_barometer'])
-        self.label_temperature_barometer.setStyleSheet("font-size: 20px; color: blue; font-weight: bold;")
+        self.label_pressure = ClickableLabel(str(self.latest_data['pressure']))
+        self.label_pressure.setObjectName("pressureLabel")
+        self.label_temperature_barometer = ClickableLabel(str(self.latest_data['temperature_barometer']))
+        self.label_temperature_barometer.setObjectName("temperatureBarometerLabel")
         barometer_layout.addWidget(QtWidgets.QLabel("기압값 (hPa):"))
         barometer_layout.addWidget(self.label_pressure)
         barometer_layout.addWidget(QtWidgets.QLabel("온도값 (°C):"))
@@ -80,10 +114,10 @@ class DataDisplayGUI(QtWidgets.QWidget):
         # 습도계 그룹 박스
         humidity_group = QtWidgets.QGroupBox("습도계")
         humidity_layout = QHBoxLayout()
-        self.label_humidity = ClickableLabel(self.latest_data['humidity'])
-        self.label_humidity.setStyleSheet("font-size: 20px; color: green; font-weight: bold;")
-        self.label_temperature_humidity = ClickableLabel(self.latest_data['temperature_humidity'])
-        self.label_temperature_humidity.setStyleSheet("font-size: 20px; color: green; font-weight: bold;")
+        self.label_humidity = ClickableLabel(str(self.latest_data['humidity']))
+        self.label_humidity.setObjectName("humidityLabel")
+        self.label_temperature_humidity = ClickableLabel(str(self.latest_data['temperature_humidity']))
+        self.label_temperature_humidity.setObjectName("temperatureHumidityLabel")
         humidity_layout.addWidget(QtWidgets.QLabel("습도값 (%):"))
         humidity_layout.addWidget(self.label_humidity)
         humidity_layout.addWidget(QtWidgets.QLabel("온도값 (°C):"))
@@ -94,12 +128,12 @@ class DataDisplayGUI(QtWidgets.QWidget):
         # 계산된 값 그룹 박스
         calculation_group = QtWidgets.QGroupBox("계산된 값")
         calculation_layout = QHBoxLayout()
-        self.label_qnh = ClickableLabel(self.latest_data['QNH'])
-        self.label_qnh.setStyleSheet("font-size: 20px; color: red; font-weight: bold;")
-        self.label_qfe = ClickableLabel(self.latest_data['QFE'])
-        self.label_qfe.setStyleSheet("font-size: 20px; color: red; font-weight: bold;")
-        self.label_qff = ClickableLabel(self.latest_data['QFF'])
-        self.label_qff.setStyleSheet("font-size: 20px; color: red; font-weight: bold;")
+        self.label_qnh = ClickableLabel(str(self.latest_data['QNH']))
+        self.label_qnh.setObjectName("qnhLabel")
+        self.label_qfe = ClickableLabel(str(self.latest_data['QFE']))
+        self.label_qfe.setObjectName("qfeLabel")
+        self.label_qff = ClickableLabel(str(self.latest_data['QFF']))
+        self.label_qff.setObjectName("qffLabel")
         calculation_layout.addWidget(QtWidgets.QLabel("QNH:"))
         calculation_layout.addWidget(self.label_qnh)
         calculation_layout.addWidget(QtWidgets.QLabel("QFE:"))
@@ -115,6 +149,9 @@ class DataDisplayGUI(QtWidgets.QWidget):
         self.adjustSize()
         self.show()
 
+        # 폰트 크기 초기 조절
+        self.adjust_font_sizes()
+
         # 클릭 이벤트 연결
         self.label_pressure.clicked.connect(lambda: self.show_data_selection_window('pressure'))
         self.label_temperature_barometer.clicked.connect(lambda: self.show_data_selection_window('temperature_barometer'))
@@ -123,7 +160,114 @@ class DataDisplayGUI(QtWidgets.QWidget):
         self.label_qnh.clicked.connect(lambda: self.show_data_selection_window('QNH'))
         self.label_qfe.clicked.connect(lambda: self.show_data_selection_window('QFE'))
         self.label_qff.clicked.connect(lambda: self.show_data_selection_window('QFF'))
-    
+
+    def update_display(self):
+        try:
+            data_updated = False
+            while not self.data_queue.empty():
+                data = self.data_queue.get()
+                if data['sensor'] == '기압계':
+                    self.latest_data['pressure'] = data.get('pressure', 'N/A')
+                    self.latest_data['temperature_barometer'] = data.get('temperature', 'N/A')
+                    data_updated = True
+                elif data['sensor'] == '습도계':
+                    self.latest_data['temperature_humidity'] = data.get('temperature', 'N/A')
+                    self.latest_data['humidity'] = data.get('humidity', 'N/A')
+                    data_updated = True
+                elif data['sensor'] == '계산값':
+                    self.latest_data['QNH'] = data.get('QNH', 'N/A')
+                    self.latest_data['QFE'] = data.get('QFE', 'N/A')
+                    self.latest_data['QFF'] = data.get('QFF', 'N/A')
+                    data_updated = True
+
+            if data_updated:
+                # 라벨 업데이트
+                self.label_pressure.setText(str(self.latest_data['pressure']))
+                self.label_temperature_barometer.setText(str(self.latest_data['temperature_barometer']))
+                self.label_temperature_humidity.setText(str(self.latest_data['temperature_humidity']))
+                self.label_humidity.setText(str(self.latest_data['humidity']))
+                self.label_qnh.setText(str(self.latest_data['QNH']))
+                self.label_qfe.setText(str(self.latest_data['QFE']))
+                self.label_qff.setText(str(self.latest_data['QFF']))
+        except Exception as e:
+            logging.error(f"update_display 메서드에서 예외 발생: {e}")
+            
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.adjust_font_sizes()
+        
+    def adjust_font_sizes(self):
+        # 윈도우의 현재 높이 가져오기
+        window_height = self.height()
+
+        # 기준 윈도우 높이에 따른 폰트 크기 계산 (예시: 높이 600 기준)
+        base_height = 600
+        base_font_size = 20  # 기준 폰트 크기
+
+        # 폰트 크기 비율 계산
+        font_scale = window_height / base_height
+        new_font_size = max(10, int(base_font_size * font_scale))  # 최소 폰트 크기를 10으로 설정
+
+        # 폰트 크기 비율 조절 (예: 1.1배)
+        font_scale *= 2.5  # 이 값을 변경하여 전체적인 폰트 크기 비율을 조절하세요.
+        
+        new_font_size = max(10, int(base_font_size * font_scale))  # 최소 폰트 크기를 10으로 설정
+
+        
+        self.setStyleSheet(f"""
+                QLabel {{
+                    font-size: {new_font_size}px;
+                }}
+                QGroupBox {{
+                    font-size: {max(12, int(18 * font_scale))}px;
+                    font-weight: bold;
+                }}
+                QLabel#pressureLabel {{
+                    color: blue;
+                    font-weight: bold;
+                }}
+                QLabel#temperatureBarometerLabel {{
+                    color: blue;
+                    font-weight: bold;
+                }}
+                QLabel#humidityLabel {{
+                    color: blue;
+                    font-weight: bold;
+                }}
+                QLabel#temperatureHumidityLabel {{
+                    color: blue;
+                    font-weight: bold;
+                }}
+                QLabel#qnhLabel, QLabel#qfeLabel, QLabel#qffLabel {{
+                    color: blue;
+                    font-weight: bold;
+                }}
+            """)
+
+
+        # 폰트 설정
+        font = QFont()
+        font.setPointSize(new_font_size)
+
+        # 모든 QLabel에 폰트 적용
+        labels = self.findChildren(QLabel)
+        for label in labels:
+            label.setFont(font)
+            
+
+        # 그룹 박스의 폰트 적용
+        group_font = QFont()
+        group_font.setPointSize(max(12, int(18 * font_scale)))  # 그룹 박스의 폰트 크기 조절
+
+        groups = self.findChildren(QtWidgets.QGroupBox)
+        for group in groups:
+            group.setFont(group_font)
+
+        # 라벨들의 크기 재조정
+        for label in labels:
+            label.adjustSize()
+            
+
     def plot_data(self, dialog, start_datetime, end_datetime, range_combo, data_type_checks):
         # 선택된 데이터 타입들
         selected_data_types = [dt for dt, cb in data_type_checks.items() if cb.isChecked()]
@@ -367,3 +511,41 @@ class DataDisplayGUI(QtWidgets.QWidget):
 
         dialog.setLayout(layout)
         dialog.exec_()
+
+    # def resizeEvent(self, event):
+    #     super().resizeEvent(event)
+    #     self.adjust_font_sizes()
+
+    # def adjust_font_sizes(self):
+    #     # 윈도우의 현재 높이 가져오기
+    #     window_height = self.height()
+
+    #     # 기본 윈도우 높이에 따른 폰트 크기 계산 (예시: 높이 600 기준)
+    #     base_height = 600
+    #     base_font_size = 20  # 기준 폰트 크기
+
+    #     # 폰트 크기 비율 계산
+    #     font_scale = window_height / base_height
+    #     new_font_size = max(10, int(base_font_size * font_scale))  # 최소 폰트 크기를 10으로 설정
+
+    #     # 라벨들의 폰트 크기 업데이트
+    #     font = QFont()
+    #     font.setPointSize(new_font_size)
+
+    #     # 각 라벨에 새로운 폰트 적용
+    #     self.label_pressure.setFont(font)
+    #     self.label_temperature_barometer.setFont(font)
+    #     self.label_humidity.setFont(font)
+    #     self.label_temperature_humidity.setFont(font)
+    #     self.label_qnh.setFont(font)
+    #     self.label_qfe.setFont(font)
+    #     self.label_qff.setFont(font)
+
+    #     # 라벨들의 크기 재조정
+    #     self.label_pressure.adjustSize()
+    #     self.label_temperature_barometer.adjustSize()
+    #     self.label_humidity.adjustSize()
+    #     self.label_temperature_humidity.adjustSize()
+    #     self.label_qnh.adjustSize()
+    #     self.label_qfe.adjustSize()
+    #     self.label_qff.adjustSize()

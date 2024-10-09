@@ -61,6 +61,7 @@ class DataStorage:
         pressure = data.get('pressure', '')
         temperature_barometer = data.get('temperature_barometer', '')
         temperature_humidity = data.get('temperature_humidity', '')
+        temperature = data.get('temperature', '')  # 선택된 온도값
         humidity = data.get('humidity', '')
         qnh = data.get('QNH', '')
         qfe = data.get('QFE', '')
@@ -68,13 +69,25 @@ class DataStorage:
 
         # CSV 파일에 데이터 저장
         try:
-            with open(self.filename, mode='a', newline='', encoding='utf-8') as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow([timestamp, data.get('sensor', ''), pressure, temperature_barometer, temperature_humidity, humidity, qnh, qfe, qff])
-            logging.debug(f"데이터 저장: {data}")
+                with open(self.filename, mode='a', newline='', encoding='utf-8') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow([
+                        timestamp,
+                        data.get('sensor', ''),
+                        pressure,
+                        temperature_barometer,
+                        temperature_humidity,
+                        temperature,
+                        humidity,
+                        qnh,
+                        qfe,
+                        qff
+                    ])
+                logging.debug(f"데이터 저장: {data}")
         except Exception as e:
             logging.error(f"데이터 저장 중 오류 발생: {e}")
-                
+            
+            
     def load_data(self, start_time=None, end_time=None):
         # 전체 데이터 디렉토리에서 데이터 로드
         data_list = []

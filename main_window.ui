@@ -381,6 +381,9 @@
          </item>
          <item>
           <widget class="QComboBox" name="comboBox_3">
+           <property name="currentText">
+            <string>COM9</string>
+           </property>
            <item>
             <property name="text">
              <string>COM1</string>
@@ -480,6 +483,9 @@
            </item>
            <item>
             <widget class="QComboBox" name="comboBox">
+             <property name="currentText">
+              <string>COM7</string>
+             </property>
              <item>
               <property name="text">
                <string>COM1</string>

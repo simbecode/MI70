@@ -15,6 +15,7 @@ from data_display_gui import DataDisplayGUI
 from PyQt5 import QtWidgets
 from custom_timed_rotating_file_handler import CustomTimedRotatingFileHandler
 
+
 def main():
     # 로그 저장 디렉토리 설정
     log_base_dir = 'C:\\Sitech\\log'
@@ -48,6 +49,10 @@ def main():
 
     logging.info("프로그램이 시작되었습니다.")
 
+    # 여기서 dr과 spm 변수를 None으로 초기화합니다.
+    dr = None
+    spm = None
+
     try:
         # 관측 지점의 고도 설정 (예: 50미터)
         elevation = 50  # 필요에 따라 실제 고도로 수정하세요.
@@ -60,23 +65,35 @@ def main():
 
         # GUI를 통해 포트 설정 가져오기
         gui = PortSettingsGUI(spm)
-        port_settings = gui.show()
+        result = gui.exec_()
 
-        if not port_settings:
+        if result == QtWidgets.QDialog.Accepted:
+            port_settings = gui.port_settings
+            temperature_source = gui.temperature_source
+        else:
             logging.info("프로그램이 종료되었습니다.")
             print("프로그램이 종료되었습니다.")
             sys.exit()
-
+            
         # 설정된 포트 열기
         spm.open_ports(port_settings)
+
+        # 선택된 온도값 소스를 가져옴
+        temperature_source = gui.temperature_source
 
         # 데이터 큐 생성
         data_queue = queue.Queue()
 
         # DataReceiver 인스턴스 생성
-        dr = DataReceiver(spm, elevation=elevation, data_queue=data_queue)
+        dr = DataReceiver(
+            spm,
+            elevation=elevation,
+            data_queue=data_queue,
+            data_callback=None,  # 여기를 수정해야 합니다.
+            temperature_source=temperature_source
+        )
         dr.start_receiving()
-
+        
         # DataStorage 인스턴스 생성
         ds = DataStorage(base_dir='C:\\Sitech')
 
@@ -95,16 +112,18 @@ def main():
         saving_thread.daemon = True
         saving_thread.start()
 
-        # 데이터 표시 GUI 실행
-        display_gui = DataDisplayGUI(data_queue)
-        sys.exit(app.exec_())
 
+        display_gui = DataDisplayGUI(data_queue, dr)
+        sys.exit(app.exec_())
+            
     except Exception as e:
         logging.exception(f"프로그램 실행 중 예외 발생: {e}")
     finally:
         # 리소스 정리
-        dr.stop_receiving()
-        spm.close_ports()
+        if dr is not None:
+            dr.stop_receiving()
+        if spm is not None:
+            spm.close_ports()
         logging.info("프로그램이 종료되었습니다.")
 
 if __name__ == "__main__":

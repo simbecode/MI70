@@ -3,6 +3,7 @@
 import sys
 import os
 import json
+import logging
 from PyQt5 import QtWidgets, QtCore
 import serial.tools.list_ports
 
@@ -28,6 +29,9 @@ class PortSettingsGUI(QtWidgets.QDialog):
 
         # 이전 설정 불러오기
         self.saved_settings = self.load_settings()
+
+        # 온도값 선택 기본값 설정
+        self.temperature_source = self.saved_settings.get('temperature_source', 'humidity_sensor')
 
         self.init_ui()
 
@@ -117,6 +121,24 @@ class PortSettingsGUI(QtWidgets.QDialog):
                 'stop_bits': stop_bits_combo
             }
 
+        # 온도값 선택 라디오 버튼 그룹 생성
+        temperature_group_box = QtWidgets.QGroupBox("온도값 선택")
+        temperature_layout = QtWidgets.QHBoxLayout()
+
+        self.radio_humidity_sensor = QtWidgets.QRadioButton("습도계 온도값 사용")
+        self.radio_barometer_sensor = QtWidgets.QRadioButton("기압계 온도값 사용")
+
+        # 이전 설정 불러오기
+        if self.temperature_source == 'humidity_sensor':
+            self.radio_humidity_sensor.setChecked(True)
+        else:
+            self.radio_barometer_sensor.setChecked(True)
+
+        temperature_layout.addWidget(self.radio_humidity_sensor)
+        temperature_layout.addWidget(self.radio_barometer_sensor)
+        temperature_group_box.setLayout(temperature_layout)
+        layout.addWidget(temperature_group_box)
+
         # 실행 버튼
         run_button = QtWidgets.QPushButton("실행")
         run_button.clicked.connect(self.on_run)
@@ -145,29 +167,76 @@ class PortSettingsGUI(QtWidgets.QDialog):
             }
 
         # 설정 저장
-        self.save_settings(self.port_settings)
+        self.save_settings()
+
+        try:
+            barometer_settings = self.port_settings.get('기압계')
+            if barometer_settings:
+                # 패리티 변환
+                parity_dict = {
+                    'None': serial.PARITY_NONE,
+                    'Even': serial.PARITY_EVEN,
+                    'Odd': serial.PARITY_ODD,
+                    'Mark': serial.PARITY_MARK,
+                    'Space': serial.PARITY_SPACE
+                }
+                parity_value = parity_dict.get(barometer_settings['parity'], serial.PARITY_NONE)
+
+                # 스탑 비트 변환
+                stop_bits_dict = {
+                    1: serial.STOPBITS_ONE,
+                    1.5: serial.STOPBITS_ONE_POINT_FIVE,
+                    2: serial.STOPBITS_TWO
+                }
+                stop_bits_value = stop_bits_dict.get(barometer_settings['stop_bits'], serial.STOPBITS_ONE)
+
+                # 시리얼 포트 열기
+                ser = serial.Serial(
+                    port=barometer_settings['port'],
+                    baudrate=barometer_settings['baudrate'],
+                    bytesize=barometer_settings['data_bits'],
+                    parity=parity_value,
+                    stopbits=stop_bits_value,
+                    timeout=1
+                )
+
+                # 명령어 'R' 전송
+                ser.write(b'R\r\n')
+                logging.info("기압계에 명령어 'R'을 전송했습니다.")
+                ser.close()
+            else:
+                logging.error("기압계 설정을 찾을 수 없습니다.")
+        except Exception as e:
+            logging.error(f"기압계에 명령어를 전송하는 중 오류 발생: {e}")
 
         self.accept()
 
-    def load_settings(self):
-        if os.path.exists(self.config_file):
-            try:
-                with open(self.config_file, 'r', encoding='utf-8') as f:
-                    settings = json.load(f)
-                    return settings
-            except Exception as e:
-                print(f"설정 파일을 불러오는 중 오류 발생: {e}")
-                return {}
-        else:
-            return {}
 
-    def save_settings(self, settings):
+
+    def save_settings(self):
+        settings = {
+            'port_settings': self.port_settings,
+            'temperature_source': self.temperature_source
+        }
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(settings, f, ensure_ascii=False, indent=4)
             print("설정이 저장되었습니다.")
         except Exception as e:
             print(f"설정 파일을 저장하는 중 오류 발생: {e}")
+            
+    def load_settings(self):
+        if os.path.exists(self.config_file):
+            try:
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                    self.temperature_source = settings.get('temperature_source', 'humidity_sensor')
+                    return settings.get('port_settings', {})
+            except Exception as e:
+                print(f"설정 파일을 불러오는 중 오류 발생: {e}")
+                return {}
+        else:
+            return {}
 
     def show(self):
         result = self.exec_()

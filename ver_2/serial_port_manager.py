@@ -8,6 +8,8 @@ class SerialPortManager:
     def __init__(self):
         self.available_ports = []
         self.serial_connections = {}
+        self.port_settings = {}  # 포트 설정 정보를 저장하기 위한 딕셔너리 추가
+
 
     def scan_ports(self):
         ports = serial.tools.list_ports.comports()
@@ -15,6 +17,7 @@ class SerialPortManager:
         logging.debug(f"사용 가능한 포트: {self.available_ports}")
 
     def open_ports(self, port_settings):
+        self.port_settings = port_settings  # 포트 설정 정보를 저장
         for sensor_name, settings in port_settings.items():
             port_name = settings['port']
             baudrate = settings['baudrate']
