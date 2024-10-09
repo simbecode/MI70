@@ -61,7 +61,7 @@ class DataStorage:
         pressure = data.get('pressure', '')
         temperature_barometer = data.get('temperature_barometer', '')
         temperature_humidity = data.get('temperature_humidity', '')
-        temperature = data.get('temperature', '')  # 선택된 온도값
+        # temperature = data.get('temperature', '')  # 선택된 온도값
         humidity = data.get('humidity', '')
         qnh = data.get('QNH', '')
         qfe = data.get('QFE', '')
@@ -77,7 +77,7 @@ class DataStorage:
                         pressure,
                         temperature_barometer,
                         temperature_humidity,
-                        temperature,
+                        # temperature,
                         humidity,
                         qnh,
                         qfe,

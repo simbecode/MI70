@@ -48,7 +48,17 @@ class DataReceiver:
                         self.connection_status[sensor_name] = True
                         # 연결 상태 변경 확인 및 로그 기록
                         if self.previous_connection_status[sensor_name] != self.connection_status[sensor_name]:
-                            logging.info(f"{sensor_name}의 연결이 복구되었습니다.")
+                            if self.connection_status[sensor_name]:  # 연결 복구됨
+                                logging.info(f"{sensor_name}의 연결이 복구되었습니다.")
+                                if sensor_name == '기압계':
+                                    # 기압계에 명령어 'R' 전송
+                                    try:
+                                        ser.write(b'R\r\n')
+                                        logging.info("기압계에 명령어 'R'을 전송했습니다.")
+                                    except Exception as e:
+                                        logging.error(f"기압계에 명령어를 전송하는 중 오류 발생: {e}")
+                            else:
+                                logging.error(f"{sensor_name}의 연결이 끊어졌습니다.")
                             self.previous_connection_status[sensor_name] = self.connection_status[sensor_name]
                         try:
                             raw_data = raw_bytes.decode('ascii', errors='ignore').strip()
@@ -81,8 +91,10 @@ class DataReceiver:
                                     # 선택된 온도값 사용
                                     if self.temperature_source == 'humidity_sensor':
                                         temperature = temperature_humidity
+                                        logging.info("습도계 온도값을 사용하여 계산합니다.")
                                     else:
                                         temperature = temperature_barometer
+                                        logging.info("기압계 온도값을 사용하여 계산합니다.")
 
                                     if pressure is not None and temperature is not None and humidity is not None:
                                         qnh = self.calculator.calculate_qnh(pressure, temperature)

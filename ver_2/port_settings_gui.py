@@ -169,6 +169,7 @@ class PortSettingsGUI(QtWidgets.QDialog):
         # 설정 저장
         self.save_settings()
 
+        # 기압계에 명령어 'R'을 전송
         try:
             barometer_settings = self.port_settings.get('기압계')
             if barometer_settings:
@@ -210,8 +211,6 @@ class PortSettingsGUI(QtWidgets.QDialog):
             logging.error(f"기압계에 명령어를 전송하는 중 오류 발생: {e}")
 
         self.accept()
-
-
 
     def save_settings(self):
         settings = {
