@@ -21,6 +21,7 @@ class DataDisplayGUI(QtWidgets.QWidget):
         self.data_queue = data_queue
         self.dr = data_receiver
         self.ds = DataStorage(base_dir='C:\\Sitech')
+        
 
         # latest_data 초기화
         self.latest_data = {
@@ -32,7 +33,8 @@ class DataDisplayGUI(QtWidgets.QWidget):
             'QFE': 'N/A',
             'QFF': 'N/A'
         }
-
+        self.is_fullscreen = False
+        
         self.init_ui()
 
         # 상태 확인 타이머 설정
@@ -42,6 +44,26 @@ class DataDisplayGUI(QtWidgets.QWidget):
 
         self.dr.data_callback = self.handle_new_data
         
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
+        
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key_F11:
+        # and event.modifiers() & QtCore.Qt.AltModifier:
+            self.toggle_fullscreen()
+        else:
+            super().keyPressEvent(event)
+            
+
+    def toggle_fullscreen(self):
+        if self.is_fullscreen:
+            # 전체 화면 모드에서 일반 모드로 전환
+            self.showNormal()
+            self.is_fullscreen = False
+        else:
+            # 일반 모드에서 전체 화면 모드로 전환
+            self.showFullScreen()
+            self.is_fullscreen = True            
+
     @pyqtSlot(dict)
     def handle_new_data(self, data):
         # _update_latest_data를 직접 호출합니다.
@@ -93,7 +115,7 @@ class DataDisplayGUI(QtWidgets.QWidget):
         # 계산된 값의 색상도 변경하고 싶다면 추가적인 로직을 작성하세요.
         
     def init_ui(self):
-        self.setWindowTitle("실시간 데이터 표시")
+        self.setWindowTitle("이동형 기압계 표출프로그램")
 
         main_layout = QVBoxLayout()
 

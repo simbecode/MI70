@@ -133,6 +133,15 @@ class PortSettingsGUI(QtWidgets.QDialog):
             self.radio_humidity_sensor.setChecked(True)
         else:
             self.radio_barometer_sensor.setChecked(True)
+            # 라디오 버튼의 상태 변경 시 슬롯 연결
+
+        self.radio_humidity_sensor.toggled.connect(self.on_temperature_source_changed)
+        self.radio_barometer_sensor.toggled.connect(self.on_temperature_source_changed)
+
+        temperature_layout.addWidget(self.radio_humidity_sensor)
+        temperature_layout.addWidget(self.radio_barometer_sensor)
+        temperature_group_box.setLayout(temperature_layout)
+        layout.addWidget(temperature_group_box)
 
         temperature_layout.addWidget(self.radio_humidity_sensor)
         temperature_layout.addWidget(self.radio_barometer_sensor)
@@ -146,6 +155,12 @@ class PortSettingsGUI(QtWidgets.QDialog):
 
         self.setLayout(layout)
 
+    def on_temperature_source_changed(self):
+        if self.radio_humidity_sensor.isChecked():
+            self.temperature_source = 'humidity_sensor'
+        elif self.radio_barometer_sensor.isChecked():
+            self.temperature_source = 'barometer_sensor'
+            
     def on_run(self):
         for sensor, widgets in self.widgets.items():
             port = widgets['port'].currentText()
@@ -165,6 +180,12 @@ class PortSettingsGUI(QtWidgets.QDialog):
                 'data_bits': data_bits,
                 'stop_bits': stop_bits
             }
+
+        # 현재 선택된 온도값 소스 업데이트
+        if self.radio_humidity_sensor.isChecked():
+            self.temperature_source = 'humidity_sensor'
+        elif self.radio_barometer_sensor.isChecked():
+            self.temperature_source = 'barometer_sensor'
 
         # 설정 저장
         self.save_settings()
