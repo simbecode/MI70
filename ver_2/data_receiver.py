@@ -3,11 +3,9 @@
 import logging
 import threading
 import time
-import queue
+import re  
 from datetime import datetime
 from calculator import Calculator
-import os
-import re  # 정규표현식 모듈 임포트
 import serial
 
 class DataReceiver:
@@ -37,124 +35,131 @@ class DataReceiver:
 
     def _receive_data(self):
         while self.receiving:
-            for sensor_name in list(self.spm.serial_connections.keys()):
-                ser = self.spm.serial_connections[sensor_name]
+            for sensor_name, ser in list(self.spm.serial_connections.items()):
                 try:
-                    if ser.in_waiting > 0:
-                        raw_bytes = ser.readline()
-                        # 데이터 수신 시간 업데이트
-                        self.last_received_time[sensor_name] = time.time()
-                        # 연결 상태를 True로 설정
-                        self.connection_status[sensor_name] = True
-                        # 연결 상태 변경 확인 및 로그 기록
-                        if self.previous_connection_status[sensor_name] != self.connection_status[sensor_name]:
-                            if self.connection_status[sensor_name]:  # 연결 복구됨
-                                logging.info(f"{sensor_name}의 연결이 복구되었습니다.")
-                                if sensor_name == '기압계':
-                                    # 기압계에 명령어 'R' 전송
-                                    try:
-                                        ser.write(b'R\r\n')
-                                        logging.info("기압계에 명령어 'R'을 전송했습니다.")
-                                    except Exception as e:
-                                        logging.error(f"기압계에 명령어를 전송하는 중 오류 발생: {e}")
-                            else:
-                                logging.error(f"{sensor_name}의 연결이 끊어졌습니다.")
-                            self.previous_connection_status[sensor_name] = self.connection_status[sensor_name]
-                        try:
-                            raw_data = raw_bytes.decode('ascii', errors='ignore').strip()
-                            logging.debug(f"{sensor_name}에서 수신된 원본 데이터: {raw_data}")
-                            if not raw_data:
-                                continue  # 빈 데이터는 무시
-                            parsed_data = self.parse_data(raw_data, sensor_name)
-                            if parsed_data is not None:
-                                parsed_data['sensor'] = sensor_name
-
-                                # 최신 데이터 저장
-                                self.latest_data[sensor_name] = parsed_data
-
-                                # 데이터를 큐에 추가
-                                self.data_queue.put(parsed_data)
-
-                                # 데이터 콜백 함수 호출 (GUI 업데이트)
-                                if self.data_callback:
-                                    self.data_callback(parsed_data)
-
-                                logging.debug(f"{sensor_name}에서 파싱된 데이터: {parsed_data}")
-
-                                # 계산 수행 코드...
-                                if '기압계' in self.latest_data and '습도계' in self.latest_data:
-                                    pressure = self.latest_data['기압계'].get('pressure')
-                                    temperature_barometer = self.latest_data['기압계'].get('temperature')
-                                    temperature_humidity = self.latest_data['습도계'].get('temperature')
-                                    humidity = self.latest_data['습도계'].get('humidity')
-
-                                    # 선택된 온도값 사용
-                                    if isinstance(self.temperature_source, float):
-                                        temperature = self.temperature_source
-                                        logging.info(f"사용자 정의 온도값을 사용하여 계산합니다: {temperature}")
-                                    elif self.temperature_source == 'humidity_sensor':
-                                        temperature = temperature_humidity
-                                        logging.info("습도계 온도값을 사용하여 계산합니다.")
-                                    else:
-                                        temperature = temperature_barometer
-                                        logging.info("기압계 온도값을 사용하여 계산합니다.")
-
-                                    if pressure is not None and temperature is not None and humidity is not None:
-                                        qfe, qnh, qff = self.calculator.calculate_pressure(pressure, temperature, humidity)
-
-                                        # 소수점 둘째 자리까지 표시
-                                        calculated_data = {
-                                            'sensor': '계산값',
-                                            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                            'pressure': pressure,
-                                            'temperature_barometer': temperature_barometer,
-                                            'temperature_humidity': temperature_humidity,
-                                            'humidity': humidity,
-                                            'QNH': round(qnh, 2),
-                                            'QFE': round(qfe, 2),
-                                            'QFF': round(qff, 2)
-                                        }
-
-                                        # 계산된 데이터를 큐에 추가
-                                        self.data_queue.put(calculated_data)
-
-                                        # 데이터 콜백 함수 호출 (GUI 업데이트)
-                                        if self.data_callback:
-                                            self.data_callback(calculated_data)
-
-                                        logging.info(f"계산된 데이터: {calculated_data}")
-                            else:
-                                logging.warning(f"{sensor_name}에서 파싱된 데이터가 None입니다.")
-                        except Exception as e:
-                            logging.error(f"{sensor_name} 데이터 처리 오류: {e}. 수신된 데이터: {raw_bytes}")
-                    else:
-                        # 데이터를 수신하지 못한 경우 연결 상태를 확인
-                        current_time = time.time()
-                        if current_time - self.last_received_time[sensor_name] > 10:  # 임계값 조정 가능
-                            self.connection_status[sensor_name] = False
-                            # 연결 상태 변경 확인 및 로그 기록
-                            if self.previous_connection_status[sensor_name] != self.connection_status[sensor_name]:
-                                logging.error(f"{sensor_name}의 연결이 끊어졌습니다.")
-                                self.previous_connection_status[sensor_name] = self.connection_status[sensor_name]
-                except serial.SerialException as e:
-                    logging.error(f"{sensor_name} 시리얼 예외 발생: {e}")
-                    self.connection_status[sensor_name] = False  # 포트 연결 끊김
-                    # 연결 상태 변경 확인 및 로그 기록
-                    if self.previous_connection_status[sensor_name] != self.connection_status[sensor_name]:
-                        logging.error(f"{sensor_name}의 연결이 끊어졌습니다.")
-                        self.previous_connection_status[sensor_name] = self.connection_status[sensor_name]
-
-                    # 시리얼 포트 재연결 시도
-                    self._reconnect_port(sensor_name)
+                    self._process_sensor_data(sensor_name, ser)
                 except Exception as e:
                     logging.error(f"{sensor_name} 데이터 처리 오류: {e}")
                     self.connection_status[sensor_name] = False
-                    # 연결 상태 ��경 확인 및 로그 기록
-                    if self.previous_connection_status[sensor_name] != self.connection_status[sensor_name]:
+                    # 연결 상태 변경 확인 및 로그 기록
+                    if self.previous_connection_status.get(sensor_name) != self.connection_status[sensor_name]:
                         logging.error(f"{sensor_name}의 연결이 끊어졌습니다.")
                         self.previous_connection_status[sensor_name] = self.connection_status[sensor_name]
             time.sleep(0.1)
             
+            
+    def _process_sensor_data(self, sensor_name, ser):
+        if ser.in_waiting > 0:
+            raw_bytes = ser.readline()
+            # 데이터 수신 시간 업데이트
+            self.last_received_time[sensor_name] = time.time()
+            # 연결 상태를 True로 설정
+            self.connection_status[sensor_name] = True
+            # 연결 상태 변경 확인 및 로그 기록
+            self._check_connection_status(sensor_name)
+            # 데이터 처리
+            self._handle_received_data(sensor_name, raw_bytes)
+        else:
+            # 데이터 수신 없음, 연결 상태 확인
+            self._check_connection_timeout(sensor_name)
+
+    def _check_connection_status(self, sensor_name):
+        if self.previous_connection_status.get(sensor_name) != self.connection_status[sensor_name]:
+            if self.connection_status[sensor_name]:
+                logging.info(f"{sensor_name}의 연결이 복구되었습니다.")
+                if sensor_name == '기압계':
+                    self._send_command_to_barometer()
+            else:
+                logging.error(f"{sensor_name}의 연결이 끊어졌습니다.")
+            self.previous_connection_status[sensor_name] = self.connection_status[sensor_name]
+
+    def _handle_received_data(self, sensor_name, raw_bytes):
+        try:
+            raw_data = raw_bytes.decode('ascii', errors='ignore').strip()
+            logging.debug(f"{sensor_name}에서 수신된 원본 데이터: {raw_data}")
+            if not raw_data:
+                return
+            parsed_data = self.parse_data(raw_data, sensor_name)
+            if parsed_data is not None:
+                parsed_data['sensor'] = sensor_name
+                self.latest_data[sensor_name] = parsed_data
+                self.data_queue.put(parsed_data)
+                if self.data_callback:
+                    self.data_callback(parsed_data)
+                logging.debug(f"{sensor_name}에서 파싱된 데이터: {parsed_data}")
+                self._perform_calculations()
+            else:
+                logging.warning(f"{sensor_name}에서 파싱된 데이터가 None입니다.")
+        except Exception as e:
+            logging.error(f"{sensor_name} 데이터 처리 오류: {e}. 수신된 데이터: {raw_bytes}")
+
+
+    def _perform_calculations(self):
+        if '기압계' in self.latest_data and '습도계' in self.latest_data:
+            pressure = self.latest_data['기압계'].get('pressure')
+            temperature_barometer = self.latest_data['기압계'].get('temperature')
+            temperature_humidity = self.latest_data['습도계'].get('temperature')
+            humidity = self.latest_data['습도계'].get('humidity')
+
+            # 선택된 온도값 사용
+            temperature = self._get_temperature(temperature_barometer, temperature_humidity)
+            if pressure is not None and temperature is not None and humidity is not None:
+                qfe, qnh, qff = self.calculator.calculate_pressure(pressure, temperature, humidity)
+
+                # 소수점 둘째 자리까지 표시
+                calculated_data = {
+                    'sensor': '계산값',
+                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'pressure': pressure,
+                    'temperature_barometer': temperature_barometer,
+                    'temperature_humidity': temperature_humidity,
+                    'humidity': humidity,
+                    'QNH': round(qnh, 2),
+                    'QFE': round(qfe, 2),
+                    'QFF': round(qff, 2)
+                }
+
+                self.data_queue.put(calculated_data)
+                if self.data_callback:
+                    self.data_callback(calculated_data)
+                logging.info(f"계산된 데이터: {calculated_data}")
+           
+    def _get_temperature(self, temp_barometer, temp_humidity):
+        if isinstance(self.temperature_source, float):
+            temperature = self.temperature_source
+            logging.info(f"사용자 정의 온도값을 사용하여 계산합니다: {temperature}")
+        elif self.temperature_source == 'humidity_sensor':
+            temperature = temp_humidity
+            logging.info("습도계 온도값을 사용하여 계산합니다.")
+        else:
+            temperature = temp_barometer
+            logging.info("기압계 온도값을 사용하여 계산합니다.")
+        return temperature
+
+    def _check_connection_timeout(self, sensor_name):
+        current_time = time.time()
+        if current_time - self.last_received_time.get(sensor_name, 0) > 10:  # 임계값 조정 가능
+            self.connection_status[sensor_name] = False
+            self._check_connection_status(sensor_name)
+        
+    def _convert_parity(self, parity_str):
+        parity_dict = {
+            'None': serial.PARITY_NONE,
+            'Even': serial.PARITY_EVEN,
+            'Odd': serial.PARITY_ODD,
+            'Mark': serial.PARITY_MARK,
+            'Space': serial.PARITY_SPACE
+        }
+        return parity_dict.get(parity_str, serial.PARITY_NONE)
+
+    def _convert_stop_bits(self, stop_bits):
+        stop_bits_dict = {
+            1: serial.STOPBITS_ONE,
+            1.5: serial.STOPBITS_ONE_POINT_FIVE,
+            2: serial.STOPBITS_TWO
+        }
+        return stop_bits_dict.get(stop_bits, serial.STOPBITS_ONE)
+
     def _reconnect_port(self, sensor_name):
             # 기존 시리얼 포트 닫기
         try:
@@ -210,12 +215,15 @@ class DataReceiver:
         except Exception as e:
             logging.error(f"{sensor_name} 포트 재연결 실패: {e}")
             self.connection_status[sensor_name] = False
+            
     def stop_receiving(self):
         self.receiving = False
         if self.receive_thread is not None:
-            self.receive_thread.join()
+            self.receive_thread.join(timeout=5)
+            if self.receive_thread.is_alive():
+                logging.warning("수신 스레드가 아직 종료되지 않았습니다.")
             self.receive_thread = None
-        logging.info("데이터 수신을 종료합니다.")
+        logging.info("데이터 수신을 종료합니다.") 
         
     def parse_data(self, raw_data, sensor_name):
         try:
@@ -289,7 +297,3 @@ class DataReceiver:
         except ValueError as e:
             logging.error(f"{sensor_name} 데이터 변환 오류: {e}. 원본 데이터: {raw_data}")
             return None
-
-
-
-

@@ -78,9 +78,6 @@ def main():
         # 설정된 포트 열기
         spm.open_ports(port_settings)
 
-        # 선택된 온도값 소스를 가져옴
-        temperature_source = gui.temperature_source
-
         # 데이터 큐 생성
         data_queue = queue.Queue()
 
@@ -91,7 +88,7 @@ def main():
         dr = DataReceiver(
             spm,
             data_queue=data_queue,
-            data_callback=None,  # 여기를 수정해야 합니다.
+            data_callback=None,  
             temperature_source=temperature_source,
             calculator=calculator  # Calculator 인스턴스를 전달
         )
@@ -99,15 +96,14 @@ def main():
         
         # DataStorage 인스턴스 생성
         ds = DataStorage(base_dir='C:\\Sitech')
-
+        
+        stop_event = threading.Event()
         # 데이터 저장 스레드 시작
         def data_saving_thread():
-            while True:
+            while not stop_event.is_set():
                 if not data_queue.empty():
                     data = data_queue.get()
-                    # 데이터를 저장
                     ds.save_data(data)
-                    # 로그에 데이터 기록
                     logging.debug(f"{data['sensor']}에서 수신된 데이터: {data}")
                 time.sleep(0.1)
 
@@ -120,7 +116,11 @@ def main():
         sys.exit(app.exec_())
             
     except Exception as e:
-        logging.exception(f"프로그램 실행 중 예외 발생: {e}")
+        if isinstance(e, SystemExit):
+            pass  # SystemExit 예외는 무시
+        else:
+            logging.exception(f"프로그램 실행 중 예외 발생: {e}")
+            
     finally:
         # 리소스 정리
         if dr is not None:

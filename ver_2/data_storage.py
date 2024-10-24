@@ -9,33 +9,24 @@ class DataStorage:
     def __init__(self, base_dir='C:\\Sitech'):
         self.base_dir = base_dir
         self.current_date = datetime.now().strftime('%Y-%m-%d')
-        self.current_file = None
         self.ensure_directory()
         self.create_csv_file()
 
     def ensure_directory(self):
-        # 데이터 디렉토리 생성
         data_base_dir = os.path.join(self.base_dir, 'data')
-        if not os.path.exists(data_base_dir):
-            os.makedirs(data_base_dir)
-            logging.info(f"데이터 기본 디렉토리 생성: {data_base_dir}")
-
-        # 날짜별 데이터 디렉토리 생성
+        os.makedirs(data_base_dir, exist_ok=True)
         date_dir = os.path.join(data_base_dir, self.current_date)
-        if not os.path.exists(date_dir):
-            os.makedirs(date_dir)
-            logging.info(f"날짜별 데이터 디렉토리 생성: {date_dir}")
+        os.makedirs(date_dir, exist_ok=True)
         self.data_dir = date_dir
-
+        
     def create_csv_file(self):
         self.filename = os.path.join(self.data_dir, 'sensor_data.csv')
-        # 파일이 없으면 헤더를 작성합니다.
         if not os.path.exists(self.filename):
             try:
                 with open(self.filename, mode='w', newline='', encoding='utf-8') as csvfile:
-                    writer = csv.writer(csvfile)
-                    # 헤더 작성
-                    writer.writerow(['timestamp', 'sensor', 'pressure', 'temperature_barometer', 'temperature_humidity', 'humidity', 'QNH', 'QFE', 'QFF'])
+                    fieldnames = ['timestamp', 'sensor', 'pressure', 'temperature_barometer', 'temperature_humidity', 'humidity', 'QNH', 'QFE', 'QFF']
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                    writer.writeheader()
                 logging.info(f"CSV 파일 생성: {self.filename}")
             except Exception as e:
                 logging.error(f"CSV 파일 생성 중 오류 발생: {e}")
@@ -48,45 +39,20 @@ class DataStorage:
             self.ensure_directory()
             self.create_csv_file()
 
-        # 데이터가 None인 경우 저장하지 않습니다.
         if data is None:
             return
 
-        # 계산된 데이터만 저장
         if data.get('sensor') != '계산값':
             return
 
-        # 저장할 데이터 준비
-        timestamp = data.get('timestamp', '')
-        pressure = data.get('pressure', '')
-        temperature_barometer = data.get('temperature_barometer', '')
-        temperature_humidity = data.get('temperature_humidity', '')
-        # temperature = data.get('temperature', '')  # 선택된 온도값
-        humidity = data.get('humidity', '')
-        qnh = data.get('QNH', '')
-        qfe = data.get('QFE', '')
-        qff = data.get('QFF', '')
-
-        # CSV 파일에 데이터 저장
         try:
-                with open(self.filename, mode='a', newline='', encoding='utf-8') as csvfile:
-                    writer = csv.writer(csvfile)
-                    writer.writerow([
-                        timestamp,
-                        data.get('sensor', ''),
-                        pressure,
-                        temperature_barometer,
-                        temperature_humidity,
-                        # temperature,
-                        humidity,
-                        qnh,
-                        qfe,
-                        qff
-                    ])
-                logging.debug(f"데이터 저장: {data}")
+            with open(self.filename, mode='a', newline='', encoding='utf-8') as csvfile:
+                fieldnames = ['timestamp', 'sensor', 'pressure', 'temperature_barometer', 'temperature_humidity', 'humidity', 'QNH', 'QFE', 'QFF']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writerow(data)
+            logging.debug(f"데이터 저장: {data}")
         except Exception as e:
             logging.error(f"데이터 저장 중 오류 발생: {e}")
-            
             
     def load_data(self, start_time=None, end_time=None):
         # 전체 데이터 디렉토리에서 데이터 로드
@@ -110,10 +76,6 @@ class DataStorage:
                             except ValueError as e:
                                 logging.error(f"타임스탬프 파싱 오류: {e}. 원본 데이터: {row}")
         return data_list
-
-    def process_data(self, data_list):
-        # 데이터를 가공하거나 추가적인 처리를 수행하는 메서드
-        pass  # 필요에 따라 구현하세요.
 
     def search_data(self, sensor=None, start_time=None, end_time=None):
         # 조건에 맞는 데이터를 검색합니다.

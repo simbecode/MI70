@@ -8,12 +8,13 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from data_storage import DataStorage
 from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtGui import QFont, QPixmap
-from PyQt5.QtCore import QTimer, Qt, pyqtSignal, pyqtSlot
+from PyQt5.QtGui import QFont
+from PyQt5.QtCore import QTimer, pyqtSlot
 from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QComboBox, QCheckBox, QMessageBox, QDateTimeEdit, QMainWindow
 )
+
 
 class DataDisplayGUI(QMainWindow):
     def __init__(self, data_queue, data_receiver):
@@ -112,7 +113,7 @@ class DataDisplayGUI(QMainWindow):
         elif sensor_name == '습도계':
             self.label_humidity.setStyleSheet(f"color: {color}; font-weight: bold;")
             self.label_temperature_humidity.setStyleSheet(f"color: {color}; font-weight: bold;")
-        # 계산된 값의 색상도 변경하고 싶다면 추가적인 로직을 작성하세요.
+        
         
     def init_ui(self):
         self.setWindowTitle("이동형 기압계 표출프로그램")

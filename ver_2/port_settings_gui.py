@@ -4,6 +4,7 @@ import sys
 import os
 import json
 import logging
+import serial
 from PyQt5 import QtWidgets, QtCore
 import serial.tools.list_ports
 from PyQt5.QtGui import QDoubleValidator
@@ -33,10 +34,6 @@ class PortSettingsGUI(QtWidgets.QDialog):
 
         # 온도값 선택 기본값 설정
         self.temperature_source = self.saved_settings.get('temperature_source', 'humidity_sensor')
-
-        # # HS, HR 기본값 설정
-        # self.hs_value = self.saved_settings.get('hs_value', 0.0)
-        # self.hr_value = self.saved_settings.get('hr_value', 0.0)
 
         self.init_ui()
 
@@ -138,7 +135,7 @@ class PortSettingsGUI(QtWidgets.QDialog):
         self.temperature_input = QtWidgets.QLineEdit()
         self.temperature_input.setPlaceholderText("온도값 입력")
         self.temperature_input.setValidator(QDoubleValidator())  # 숫자만 입력 가능하도록 설정
-        self.temperature_input.setEnabled(False)  # 비활성화 상태로 설정
+        self.temperature_input.setEnabled(True)  # 비활성화 상태로 설정
 
         # 이전 설정 불러오기
         if self.temperature_source == 'humidity_sensor':
@@ -149,10 +146,6 @@ class PortSettingsGUI(QtWidgets.QDialog):
             self.radio_user_defined.setChecked(True)
             self.temperature_input.setText(str(self.temperature_source))
 
-        # 라디오 버튼의 상태 변경 시 슬롯 연결
-        self.radio_humidity_sensor.toggled.connect(self.on_temperature_source_changed)
-        self.radio_barometer_sensor.toggled.connect(self.on_temperature_source_changed)
-        self.radio_user_defined.toggled.connect(self.on_temperature_source_changed)  # 사용자 정의 온도값 라디오 버튼 연결
 
         temperature_layout.addWidget(self.radio_humidity_sensor)
         temperature_layout.addWidget(self.radio_barometer_sensor)
@@ -190,24 +183,6 @@ class PortSettingsGUI(QtWidgets.QDialog):
         layout.addWidget(run_button)
 
         self.setLayout(layout)
-
-    def on_temperature_source_changed(self):
-        if self.radio_humidity_sensor.isChecked():
-            self.temperature_source = 'humidity_sensor'
-            self.temperature_input.setEnabled(False)
-        elif self.radio_barometer_sensor.isChecked():
-            self.temperature_source = 'barometer_sensor'
-            self.temperature_input.setEnabled(False)
-        elif self.radio_user_defined.isChecked():
-            self.temperature_input.setEnabled(True)
-            if self.temperature_input.text():
-                try:
-                    self.temperature_source = float(self.temperature_input.text())
-                    logging.info(f"사용자 정의 온도값이 입력되었습니다: {self.temperature_source}")
-                except ValueError:
-                    QtWidgets.QMessageBox.warning(self, "경고", "유효한 숫자를 입력하세요.")
-            else:
-                self.temperature_source = None
 
     def on_run(self):
         for sensor, widgets in self.widgets.items():
@@ -308,9 +283,9 @@ class PortSettingsGUI(QtWidgets.QDialog):
         try:
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(settings, f, ensure_ascii=False, indent=4)
-            print("설정이 저장되었습니다.")
+            logging.info("설정이 저장되었습니다.")
         except Exception as e:
-            print(f"설정 파일을 저장하는 중 오류 발생: {e}")
+            logging.info(f"설정 파일을 저장하는 중 오류 발생: {e}")
             
     def load_settings(self):
         if os.path.exists(self.config_file):
@@ -320,19 +295,18 @@ class PortSettingsGUI(QtWidgets.QDialog):
                     self.temperature_source = settings.get('temperature_source', 'humidity_sensor')
                     self.hs_value = settings.get('hs_value', 0.0)
                     self.hr_value = settings.get('hr_value', 0.0)
-                    print(f"Loaded HS: {self.hs_value}, HR: {self.hr_value}")  # 디버깅용 출력
+                    logging.info(f"Loaded HS: {self.hs_value}, HR: {self.hr_value}")  # 디버깅용 출력
                     return settings.get('port_settings', {})
             except Exception as e:
-                print(f"설정 파일을 불러오는 중 오류 발생: {e}")
+                logging.info(f"설정 파일을 불러오는 중 오류 발생: {e}")
                 return {}
         else:
-            print("설정 파일이 존재하지 않습니다.")
+            logging.info("설정 파일이 존재하지 않습니다.")
             return {}
-
-    def show(self):
-        result = self.exec_()
+        
+    def exec(self):
+        result = super().exec_()
         if result == QtWidgets.QDialog.Accepted:
             return self.port_settings
         else:
             return None
-
