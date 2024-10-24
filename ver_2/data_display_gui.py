@@ -8,14 +8,14 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from data_storage import DataStorage
 from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QPixmap
 from PyQt5.QtCore import QTimer, Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QComboBox, QCheckBox, QMessageBox, QDateTimeEdit
+    QComboBox, QCheckBox, QMessageBox, QDateTimeEdit, QMainWindow
 )
 
-class DataDisplayGUI(QtWidgets.QWidget):
+class DataDisplayGUI(QMainWindow):
     def __init__(self, data_queue, data_receiver):
         super().__init__()
         self.data_queue = data_queue
@@ -117,7 +117,9 @@ class DataDisplayGUI(QtWidgets.QWidget):
     def init_ui(self):
         self.setWindowTitle("이동형 기압계 표출프로그램")
 
-        main_layout = QVBoxLayout()
+        central_widget = QtWidgets.QWidget()
+        main_layout = QVBoxLayout(central_widget)
+
 
         # 기압계 그룹 박스
         barometer_group = QtWidgets.QGroupBox("기압계")
@@ -165,7 +167,21 @@ class DataDisplayGUI(QtWidgets.QWidget):
         calculation_group.setLayout(calculation_layout)
         main_layout.addWidget(calculation_group)
 
-        self.setLayout(main_layout)
+        self.setCentralWidget(central_widget)
+
+        # 상태바 추가
+        self.status_bar = self.statusBar()
+        self.time_label = QLabel()
+        self.company_label = QLabel("에스아이테크")
+        self.status_bar.addWidget(self.time_label, 1)  # 왼쪽 정렬
+        self.status_bar.addPermanentWidget(self.company_label)  # 오른쪽 정렬
+
+        self.update_status_bar_time()
+
+        # 상태바 시간 업데이트 타이머 설정
+        self.time_update_timer = QTimer()
+        self.time_update_timer.timeout.connect(self.update_status_bar_time)
+        self.time_update_timer.start(1000)  # 1초마다 시간 업데이트
 
         # 창 크기 조정
         self.adjustSize()
@@ -182,6 +198,10 @@ class DataDisplayGUI(QtWidgets.QWidget):
         self.label_qnh.clicked.connect(lambda: self.show_data_selection_window('QNH'))
         self.label_qfe.clicked.connect(lambda: self.show_data_selection_window('QFE'))
         self.label_qff.clicked.connect(lambda: self.show_data_selection_window('QFF'))
+
+    def update_status_bar_time(self):
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.time_label.setText(current_time)
 
     def update_display(self):
         try:
@@ -231,7 +251,7 @@ class DataDisplayGUI(QtWidgets.QWidget):
         new_font_size = max(10, int(base_font_size * font_scale))  # 최소 폰트 크기를 10으로 설정
 
         # 폰트 크기 비율 조절 (예: 1.1배)
-        font_scale *= 2.5  # 이 값을 변경하여 전체적인 폰트 크기 비율을 조절하세요.
+        font_scale *= 3  # 이 값을 변경하여 전체적인 폰트 크기 비율을 조절하세요.
         
         new_font_size = max(10, int(base_font_size * font_scale))  # 최소 폰트 크기를 10으로 설정
 
@@ -534,40 +554,3 @@ class DataDisplayGUI(QtWidgets.QWidget):
         dialog.setLayout(layout)
         dialog.exec_()
 
-    # def resizeEvent(self, event):
-    #     super().resizeEvent(event)
-    #     self.adjust_font_sizes()
-
-    # def adjust_font_sizes(self):
-    #     # 윈도우의 현재 높이 가져오기
-    #     window_height = self.height()
-
-    #     # 기본 윈도우 높이에 따른 폰트 크기 계산 (예시: 높이 600 기준)
-    #     base_height = 600
-    #     base_font_size = 20  # 기준 폰트 크기
-
-    #     # 폰트 크기 비율 계산
-    #     font_scale = window_height / base_height
-    #     new_font_size = max(10, int(base_font_size * font_scale))  # 최소 폰트 크기를 10으로 설정
-
-    #     # 라벨들의 폰트 크기 업데이트
-    #     font = QFont()
-    #     font.setPointSize(new_font_size)
-
-    #     # 각 라벨에 새로운 폰트 적용
-    #     self.label_pressure.setFont(font)
-    #     self.label_temperature_barometer.setFont(font)
-    #     self.label_humidity.setFont(font)
-    #     self.label_temperature_humidity.setFont(font)
-    #     self.label_qnh.setFont(font)
-    #     self.label_qfe.setFont(font)
-    #     self.label_qff.setFont(font)
-
-    #     # 라벨들의 크기 재조정
-    #     self.label_pressure.adjustSize()
-    #     self.label_temperature_barometer.adjustSize()
-    #     self.label_humidity.adjustSize()
-    #     self.label_temperature_humidity.adjustSize()
-    #     self.label_qnh.adjustSize()
-    #     self.label_qfe.adjustSize()
-    #     self.label_qff.adjustSize()

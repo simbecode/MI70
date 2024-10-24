@@ -14,6 +14,7 @@ from port_settings_gui import PortSettingsGUI
 from data_display_gui import DataDisplayGUI
 from PyQt5 import QtWidgets
 from custom_timed_rotating_file_handler import CustomTimedRotatingFileHandler
+from calculator import Calculator
 
 
 def main():
@@ -54,9 +55,6 @@ def main():
     spm = None
 
     try:
-        # 관측 지점의 고도 설정 (예: 50미터)
-        elevation = 50  # 필요에 따라 실제 고도로 수정하세요.
-
         # SerialPortManager 인스턴스 생성
         spm = SerialPortManager()
 
@@ -70,6 +68,8 @@ def main():
         if result == QtWidgets.QDialog.Accepted:
             port_settings = gui.port_settings
             temperature_source = gui.temperature_source
+            hs_value = gui.hs_value  # HS 값을 가져옴
+            hr_value = gui.hr_value  # HR 값을 가져옴
         else:
             logging.info("프로그램이 종료되었습니다.")
             print("프로그램이 종료되었습니다.")
@@ -84,13 +84,16 @@ def main():
         # 데이터 큐 생성
         data_queue = queue.Queue()
 
-        # DataReceiver 인스턴스 생성
+        # Calculator 인스턴스를 생성할 때 hs와 hr 값을 전달
+        calculator = Calculator(hs=hs_value, hr=hr_value)
+
+        # DataReceiver에 Calculator 인스턴스를 전달
         dr = DataReceiver(
             spm,
-            elevation=elevation,
             data_queue=data_queue,
             data_callback=None,  # 여기를 수정해야 합니다.
-            temperature_source=temperature_source
+            temperature_source=temperature_source,
+            calculator=calculator  # Calculator 인스턴스를 전달
         )
         dr.start_receiving()
         
@@ -128,3 +131,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

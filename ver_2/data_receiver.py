@@ -11,14 +11,14 @@ import re  # 정규표현식 모듈 임포트
 import serial
 
 class DataReceiver:
-    def __init__(self, serial_port_manager, elevation=0, data_queue=None, data_callback=None, temperature_source='humidity_sensor'):
-        self.spm = serial_port_manager
+    def __init__(self, spm, data_queue, data_callback, temperature_source, calculator):
+        self.spm = spm
+        self.data_queue = data_queue
+        self.data_callback = data_callback
+        self.temperature_source = temperature_source
+        self.calculator = calculator  # Calculator 인스턴스를 저장
         self.receiving = False
         self.receive_thread = None
-        self.data_queue = data_queue if data_queue else queue.Queue()
-        self.data_callback = data_callback  # 데이터 콜백 함수
-        self.calculator = Calculator(elevation)
-        self.temperature_source = temperature_source
         self.latest_data = {}
         self.connection_status = {}
         self.previous_connection_status = {}
@@ -89,7 +89,10 @@ class DataReceiver:
                                     humidity = self.latest_data['습도계'].get('humidity')
 
                                     # 선택된 온도값 사용
-                                    if self.temperature_source == 'humidity_sensor':
+                                    if isinstance(self.temperature_source, float):
+                                        temperature = self.temperature_source
+                                        logging.info(f"사용자 정의 온도값을 사용하여 계산합니다: {temperature}")
+                                    elif self.temperature_source == 'humidity_sensor':
                                         temperature = temperature_humidity
                                         logging.info("습도계 온도값을 사용하여 계산합니다.")
                                     else:
@@ -97,9 +100,7 @@ class DataReceiver:
                                         logging.info("기압계 온도값을 사용하여 계산합니다.")
 
                                     if pressure is not None and temperature is not None and humidity is not None:
-                                        qnh = self.calculator.calculate_qnh(pressure, temperature)
-                                        qfe = self.calculator.calculate_qfe(pressure)
-                                        qff = self.calculator.calculate_qff(pressure, temperature, humidity)
+                                        qfe, qnh, qff = self.calculator.calculate_pressure(pressure, temperature, humidity)
 
                                         # 소수점 둘째 자리까지 표시
                                         calculated_data = {
@@ -148,7 +149,7 @@ class DataReceiver:
                 except Exception as e:
                     logging.error(f"{sensor_name} 데이터 처리 오류: {e}")
                     self.connection_status[sensor_name] = False
-                    # 연결 상태 변경 확인 및 로그 기록
+                    # 연결 상태 ��경 확인 및 로그 기록
                     if self.previous_connection_status[sensor_name] != self.connection_status[sensor_name]:
                         logging.error(f"{sensor_name}의 연결이 끊어졌습니다.")
                         self.previous_connection_status[sensor_name] = self.connection_status[sensor_name]
@@ -226,7 +227,7 @@ class DataReceiver:
                 logging.debug(f"수신된 원본 데이터: {repr(raw_data)}")
 
                 # 데이터 형식: "RH= 38.7 %RH T= 27.1 'C"
-                # 공백을 제거하지 않고 전체 문자열에서 필요한 부분을 추출
+                # 공백을 제거하지 않고 전체 문자열에서 필한 부분을 추출
 
                 # 정규표현식 패턴 정의
                 pattern = r"RH=\s*([\d\.]+)\s*%RH\s*T=\s*([\d\.\-]+)\s*'C"
@@ -288,4 +289,7 @@ class DataReceiver:
         except ValueError as e:
             logging.error(f"{sensor_name} 데이터 변환 오류: {e}. 원본 데이터: {raw_data}")
             return None
+
+
+
 
