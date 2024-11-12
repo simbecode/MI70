@@ -1,5 +1,3 @@
-# data_storage.py
-
 import csv
 import threading
 import logging
@@ -17,9 +15,7 @@ class DataStorage:
             os.makedirs(self.base_dir)
             
         self.lock = threading.Lock()  # 스레드 안전성을 위한 락
-        self.last_id = {}
         self.current_date = datetime.now().date()  # 현재 날짜를 저장
-
 
     def _get_csv_path(self):
         now = datetime.now()
@@ -45,18 +41,7 @@ class DataStorage:
                     'QFE',
                     'QFF'
                 ]
-                writer.writerow(fields)
-            self.last_id[csv_path] = 0
-        else:
-            # 기존 파일이 있을 경우 마지막 ID를 가져옵니다.
-            with open(csv_path, mode='r', newline='', encoding='utf-8') as csvfile:
-                reader = csv.reader(csvfile)
-                rows = list(reader)
-                if len(rows) > 1:
-                    last_row = rows[-1]
-                    self.last_id[csv_path] = int(last_row[0])
-                else:
-                    self.last_id[csv_path] = 0
+                writer.writerow(fields)  # 필드 헤더 추가
 
     def save_data(self, data):
         with self.lock:
@@ -65,13 +50,11 @@ class DataStorage:
             if now_date != self.current_date:
                 # 날짜가 변경되었을 때 처리
                 self.current_date = now_date
-                self.last_id = {}  # 새로운 파일을 위해 last_id 초기화
 
             csv_path = self._get_csv_path()
 
             # CSV 파일 초기화
-            if csv_path not in self.last_id:
-                self._initialize_csv_file(csv_path)
+            self._initialize_csv_file(csv_path)
 
             # 저장할 필드 목록 정의
             fields = [
@@ -179,4 +162,3 @@ class DataStorage:
     def close(self):
         # CSV 파일은 별도의 연결을 유지하지 않으므로 특별한 종료 작업이 필요하지 않습니다.
         pass
-
