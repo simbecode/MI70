@@ -1,134 +1,98 @@
 # main.py
 
-import os
 import sys
+import os
 import logging
-import time
-import threading
-import queue
-from datetime import datetime
-from serial_port_manager import SerialPortManager
+from PyQt5.QtWidgets import QApplication
+from data_display_gui import DataDisplayGUI
 from data_receiver import DataReceiver
 from data_storage import DataStorage
 from port_settings_gui import PortSettingsGUI
-from data_display_gui import DataDisplayGUI
-from PyQt5 import QtWidgets
+from serial_port_manager import SerialPortManager
+from queue import Queue
 from custom_timed_rotating_file_handler import CustomTimedRotatingFileHandler
-from calculator import Calculator
 
 
-def main():
-    # 로그 저장 디렉토리 설정
-    log_base_dir = 'C:\\Sitech\\log'
+def setup_logging():
+    # 로그를 저장할 기본 디렉토리 설정
+    log_dir = r'C:\Sitech\logs'  # 로그를 저장할 경로 지정
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
 
-    # 로그 디렉토리가 없으면 생성
-    if not os.path.exists(log_base_dir):
-        os.makedirs(log_base_dir)
+    # 로거 생성
+    logger = logging.getLogger()  # 루트 로거를 사용하거나 원하는 이름으로 로거 생성
+    logger.setLevel(logging.DEBUG)  # 필요에 따라 로그 레벨 설정
 
-    # 로그 핸들러 생성
+    # 핸들러 생성
     handler = CustomTimedRotatingFileHandler(
-        dir_path=log_base_dir,
-        when='midnight',
+        dir_path=log_dir,
+        when='midnight',    # 매일 자정마다 롤오버
         interval=1,
-        backupCount=7,  # 보관할 백업 파일 개수
+        backupCount=30,      # 최근 7개의 로그 파일만 보관 (원하는 값으로 설정)
         encoding='utf-8'
     )
 
-    # 로그 포맷 설정
+    # 포매터 설정
     formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
     handler.setFormatter(formatter)
 
-    # 루트 로거에 핸들러 추가
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    # 핸들러를 로거에 추가
     logger.addHandler(handler)
 
-    # 콘솔 출력 핸들러 추가 (선택 사항)
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+def main():
+        # 로그 설정
+    setup_logging()
 
+    # 프로그램 초기화
     logging.info("프로그램이 시작되었습니다.")
+    
+    app = QApplication(sys.argv)
 
-    # 여기서 dr과 spm 변수를 None으로 초기화합니다.
-    dr = None
-    spm = None
+    # 데이터 큐 생성
+    data_queue = Queue()
+    
+    # 기본 데이터 저장 경로 설정
+    base_dir = r'C:\Sitech\data'
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir)
 
-    try:
-        # SerialPortManager 인스턴스 생성
-        spm = SerialPortManager()
+    # 데이터 저장 객체 생성
+    ds = DataStorage(base_dir=base_dir)
 
-        # PyQt5 애플리케이션 생성
-        app = QtWidgets.QApplication(sys.argv)
+    # 포트 설정 GUI 표시
+    spm = SerialPortManager()
+    port_settings_gui = PortSettingsGUI(spm)
+    if port_settings_gui.exec_() == 0:
+        print("포트 설정이 취소되었습니다.")
+        sys.exit()
 
-        # GUI를 통해 포트 설정 가져오기
-        gui = PortSettingsGUI(spm)
-        result = gui.exec_()
+    port_settings = port_settings_gui.port_settings
+    hs_value = port_settings_gui.hs_value
+    hr_value = port_settings_gui.hr_value
+    temperature_source = port_settings_gui.temperature_source
 
-        if result == QtWidgets.QDialog.Accepted:
-            port_settings = gui.port_settings
-            temperature_source = gui.temperature_source
-            hs_value = gui.hs_value  # HS 값을 가져옴
-            hr_value = gui.hr_value  # HR 값을 가져옴
-        else:
-            logging.info("프로그램이 종료되었습니다.")
-            print("프로그램이 종료되었습니다.")
-            sys.exit()
-            
-        # 설정된 포트 열기
-        spm.open_ports(port_settings)
+    if not port_settings:
+        print("포트 설정이 없습니다.")
+        sys.exit()
 
-        # 데이터 큐 생성
-        data_queue = queue.Queue()
+    # 데이터 수신 객체 생성
+    data_receiver = DataReceiver(data_queue, port_settings, ds, hs_value, hr_value, temperature_source)
+    data_receiver.start()
 
-        # Calculator 인스턴스를 생성할 때 hs와 hr 값을 전달
-        calculator = Calculator(hs=hs_value, hr=hr_value)
+    # 데이터 표시 GUI 생성
+    gui = DataDisplayGUI(data_queue, data_receiver, ds)
+    gui.show()
 
-        # DataReceiver에 Calculator 인스턴스를 전달
-        dr = DataReceiver(
-            spm,
-            data_queue=data_queue,
-            data_callback=None,  
-            temperature_source=temperature_source,
-            calculator=calculator  # Calculator 인스턴스를 전달
-        )
-        dr.start_receiving()
-        
-        # DataStorage 인스턴스 생성
-        ds = DataStorage(base_dir='C:\\Sitech')
-        
-        stop_event = threading.Event()
-        # 데이터 저장 스레드 시작
-        def data_saving_thread():
-            while not stop_event.is_set():
-                if not data_queue.empty():
-                    data = data_queue.get()
-                    ds.save_data(data)
-                    logging.debug(f"{data['sensor']}에서 수신된 데이터: {data}")
-                time.sleep(0.1)
+    # 프로그램 종료 시 처리
+    def on_exit():
+        data_receiver.stop()
+        data_receiver.join()
+        ds.close()
 
-        saving_thread = threading.Thread(target=data_saving_thread)
-        saving_thread.daemon = True
-        saving_thread.start()
-
-
-        display_gui = DataDisplayGUI(data_queue, dr)
-        sys.exit(app.exec_())
-            
-    except Exception as e:
-        if isinstance(e, SystemExit):
-            pass  # SystemExit 예외는 무시
-        else:
-            logging.exception(f"프로그램 실행 중 예외 발생: {e}")
-            
-    finally:
-        # 리소스 정리
-        if dr is not None:
-            dr.stop_receiving()
-        if spm is not None:
-            spm.close_ports()
-        logging.info("프로그램이 종료되었습니다.")
+    app.aboutToQuit.connect(on_exit)
+    sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()
+
 

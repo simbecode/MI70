@@ -1,93 +1,182 @@
 # data_storage.py
 
 import csv
-import os
+import threading
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
+import os
 
 class DataStorage:
-    def __init__(self, base_dir='C:\\Sitech'):
-        self.base_dir = base_dir
-        self.current_date = datetime.now().strftime('%Y-%m-%d')
-        self.ensure_directory()
-        self.create_csv_file()
-
-    def ensure_directory(self):
-        data_base_dir = os.path.join(self.base_dir, 'data')
-        os.makedirs(data_base_dir, exist_ok=True)
-        date_dir = os.path.join(data_base_dir, self.current_date)
-        os.makedirs(date_dir, exist_ok=True)
-        self.data_dir = date_dir
-        
-    def create_csv_file(self):
-        self.filename = os.path.join(self.data_dir, 'sensor_data.csv')
-        if not os.path.exists(self.filename):
-            try:
-                with open(self.filename, mode='w', newline='', encoding='utf-8') as csvfile:
-                    fieldnames = ['timestamp', 'sensor', 'pressure', 'temperature_barometer', 'temperature_humidity', 'humidity', 'QNH', 'QFE', 'QFF']
-                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                    writer.writeheader()
-                logging.info(f"CSV 파일 생성: {self.filename}")
-            except Exception as e:
-                logging.error(f"CSV 파일 생성 중 오류 발생: {e}")
-                
-    def save_data(self, data):
-        # 날짜가 변경되었는지 확인
-        current_date = datetime.now().strftime('%Y-%m-%d')
-        if current_date != self.current_date:
-            self.current_date = current_date
-            self.ensure_directory()
-            self.create_csv_file()
-
-        if data is None:
-            return
-
-        if data.get('sensor') != '계산값':
-            return
-
-        try:
-            with open(self.filename, mode='a', newline='', encoding='utf-8') as csvfile:
-                fieldnames = ['timestamp', 'sensor', 'pressure', 'temperature_barometer', 'temperature_humidity', 'humidity', 'QNH', 'QFE', 'QFF']
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                writer.writerow(data)
-            logging.debug(f"데이터 저장: {data}")
-        except Exception as e:
-            logging.error(f"데이터 저장 중 오류 발생: {e}")
+    def __init__(self, base_dir=None):
+        # 기본 디렉토리 설정
+        if base_dir is None:
+            self.base_dir = r'C:\Sitech\data'
+        else:
+            self.base_dir = base_dir
+        if not os.path.exists(self.base_dir):
+            os.makedirs(self.base_dir)
             
+        self.lock = threading.Lock()  # 스레드 안전성을 위한 락
+        self.last_id = {}
+        self.current_date = datetime.now().date()  # 현재 날짜를 저장
+
+
+    def _get_csv_path(self):
+        now = datetime.now()
+        dir_path = os.path.join(self.base_dir, now.strftime('%Y-%m'))
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        csv_filename = now.strftime('%Y-%m-%d') + '.csv'
+        csv_path = os.path.join(dir_path, csv_filename)
+        return csv_path
+
+    def _initialize_csv_file(self, csv_path):
+        if not os.path.exists(csv_path):
+            with open(csv_path, mode='w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                fields = [
+                    'timestamp',
+                    'sensor',
+                    'pressure',
+                    'temperature_barometer',
+                    'temperature_humidity',
+                    'humidity',
+                    'QNH',
+                    'QFE',
+                    'QFF'
+                ]
+                writer.writerow(fields)
+            self.last_id[csv_path] = 0
+        else:
+            # 기존 파일이 있을 경우 마지막 ID를 가져옵니다.
+            with open(csv_path, mode='r', newline='', encoding='utf-8') as csvfile:
+                reader = csv.reader(csvfile)
+                rows = list(reader)
+                if len(rows) > 1:
+                    last_row = rows[-1]
+                    self.last_id[csv_path] = int(last_row[0])
+                else:
+                    self.last_id[csv_path] = 0
+
+    def save_data(self, data):
+        with self.lock:
+            # 현재 날짜 확인
+            now_date = datetime.now().date()
+            if now_date != self.current_date:
+                # 날짜가 변경되었을 때 처리
+                self.current_date = now_date
+                self.last_id = {}  # 새로운 파일을 위해 last_id 초기화
+
+            csv_path = self._get_csv_path()
+
+            # CSV 파일 초기화
+            if csv_path not in self.last_id:
+                self._initialize_csv_file(csv_path)
+
+            # 저장할 필드 목록 정의
+            fields = [
+                'timestamp',
+                'sensor',
+                'pressure',
+                'temperature_barometer',
+                'temperature_humidity',
+                'humidity',
+                'QNH',
+                'QFE',
+                'QFF'
+            ]
+
+            # 저장할 데이터 준비
+            row = [data.get(field, '') for field in fields]
+
+            # 데이터 저장
+            with open(csv_path, mode='a', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(row)
+
     def load_data(self, start_time=None, end_time=None):
-        # 전체 데이터 디렉토리에서 데이터 로드
         data_list = []
-        data_base_dir = os.path.join(self.base_dir, 'data')
-        for root, dirs, files in os.walk(data_base_dir):
-            for file in files:
-                if file == 'sensor_data.csv':
-                    file_path = os.path.join(root, file)
-                    with open(file_path, mode='r', newline='', encoding='utf-8') as csvfile:
-                        reader = csv.DictReader(csvfile)
-                        for row in reader:
-                            # 타임스탬프 필터링
-                            try:
-                                row_time = datetime.strptime(row['timestamp'], '%Y-%m-%d %H:%M:%S')
-                                if start_time and row_time < start_time:
+        try:
+            with self.lock:
+                # 시작 날짜와 종료 날짜 계산
+                if start_time is None:
+                    start_date = datetime.now().date()
+                else:
+                    start_date = start_time.date()
+
+                if end_time is None:
+                    end_date = datetime.now().date()
+                else:
+                    end_date = end_time.date()
+
+                # 날짜 범위에 해당하는 파일들을 읽음
+                delta = end_date - start_date
+                for i in range(delta.days + 1):
+                    date = start_date + timedelta(days=i)
+                    csv_path = os.path.join(
+                        self.base_dir,
+                        date.strftime('%Y-%m'),
+                        f"{date.strftime('%Y-%m-%d')}.csv"
+                    )
+
+                    if os.path.exists(csv_path):
+                        with open(csv_path, mode='r', newline='', encoding='utf-8') as csvfile:
+                            reader = csv.DictReader(csvfile)
+                            for row in reader:
+                                timestamp = datetime.strptime(row['timestamp'], '%Y-%m-%d %H:%M:%S')
+                                if start_time and timestamp < start_time:
                                     continue
-                                if end_time and row_time > end_time:
+                                if end_time and timestamp > end_time:
                                     continue
                                 data_list.append(row)
-                            except ValueError as e:
-                                logging.error(f"타임스탬프 파싱 오류: {e}. 원본 데이터: {row}")
-        return data_list
+                return data_list
+        except Exception as e:
+            logging.error(f"데이터 로드 중 오류 발생: {e}")
+            return []
 
     def search_data(self, sensor=None, start_time=None, end_time=None):
-        # 조건에 맞는 데이터를 검색합니다.
-        data_list = self.load_data(start_time=start_time, end_time=end_time)
-        result = []
+        data_list = []
+        try:
+            with self.lock:
+                # 시작 날짜와 종료 날짜 계산
+                if start_time is None:
+                    start_date = datetime.now().date()
+                else:
+                    start_date = start_time.date()
 
-        for row in data_list:
-            match = True
+                if end_time is None:
+                    end_date = datetime.now().date()
+                else:
+                    end_date = end_time.date()
 
-            if sensor and row['sensor'] != sensor:
-                match = False
+                # 날짜 범위에 해당하는 파일들을 읽음
+                delta = end_date - start_date
+                for i in range(delta.days + 1):
+                    date = start_date + timedelta(days=i)
+                    csv_path = os.path.join(
+                        self.base_dir,
+                        date.strftime('%Y-%m'),
+                        f"{date.strftime('%Y-%m-%d')}.csv"
+                    )
 
-            if match:
-                result.append(row)
-        return result
+                    if os.path.exists(csv_path):
+                        with open(csv_path, mode='r', newline='', encoding='utf-8') as csvfile:
+                            reader = csv.DictReader(csvfile)
+                            for row in reader:
+                                if sensor and row['sensor'] != sensor:
+                                    continue
+                                timestamp = datetime.strptime(row['timestamp'], '%Y-%m-%d %H:%M:%S')
+                                if start_time and timestamp < start_time:
+                                    continue
+                                if end_time and timestamp > end_time:
+                                    continue
+                                data_list.append(row)
+                return data_list
+        except Exception as e:
+            logging.error(f"데이터 검색 중 오류 발생: {e}")
+            return []
+
+    def close(self):
+        # CSV 파일은 별도의 연결을 유지하지 않으므로 특별한 종료 작업이 필요하지 않습니다.
+        pass
+
