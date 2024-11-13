@@ -16,9 +16,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+
+
 class DataDisplayGUI(QMainWindow):
     def __init__(self, data_queue, data_receiver, ds):
         super().__init__()
+        
+        plt.rcParams['font.family'] ='Malgun Gothic'
+        plt.rcParams['axes.unicode_minus'] =False
+
 
         self.data_queue = data_queue
         self.data_receiver = data_receiver
@@ -51,7 +57,7 @@ class DataDisplayGUI(QMainWindow):
         self.time_timer.start(1000)  # 1초마다 시간 업데이트
 
     def init_ui(self):
-        self.setWindowTitle("데이터 표시 GUI")
+        self.setWindowTitle("실황 정보")
 
         # 메인 위젯 설정
         main_widget = QWidget()
@@ -62,11 +68,11 @@ class DataDisplayGUI(QMainWindow):
         main_widget.setLayout(self.main_layout)
 
         # 데이터 표시를 위한 레이블 생성
-        self.label_pressure = QLabel("압력:")
+        self.label_pressure = QLabel("기압:")
         self.value_pressure = QLabel("-")
         self.label_temperature_barometer = QLabel("기압계 온도:")
         self.value_temperature_barometer = QLabel("-")
-        self.label_temperature_humidity = QLabel("습도계 온도:")
+        self.label_temperature_humidity = QLabel("온도:")
         self.value_temperature_humidity = QLabel("-")
         self.label_humidity = QLabel("습도:")
         self.value_humidity = QLabel("-")
@@ -108,13 +114,13 @@ class DataDisplayGUI(QMainWindow):
         button_row1 = QHBoxLayout()  # 첫 번째 행 레이아웃
         button_row2 = QHBoxLayout()  # 두 번째 행 레이아웃
 
-        self.button_pressure = QPushButton("압력 데이터 조회")
+        self.button_pressure = QPushButton("기압 데이터 조회")
         self.button_pressure.clicked.connect(lambda: self.show_data_selection_window(['pressure']))
         self.button_temperature = QPushButton("온도 데이터 조회")
         self.button_temperature.clicked.connect(lambda: self.show_data_selection_window(['temperature_barometer', 'temperature_humidity']))
         self.button_humidity = QPushButton("습도 데이터 조회")
         self.button_humidity.clicked.connect(lambda: self.show_data_selection_window(['humidity']))
-        self.button_q_values = QPushButton("Q값 데이터 조회")
+        self.button_q_values = QPushButton("데이터 조회")
         self.button_q_values.clicked.connect(lambda: self.show_data_selection_window(['QNH', 'QFE', 'QFF']))
 
         button_row1.addWidget(self.button_pressure)
@@ -195,7 +201,7 @@ class DataDisplayGUI(QMainWindow):
 
     def update_current_time(self):
         current_time = QDateTime.currentDateTime().toString("yyyy-MM-dd hh:mm:ss")
-        self.current_time_label.setText(f"현재 시간: {current_time}")
+        self.current_time_label.setText(current_time)
 
     def update_data(self):
         # 데이터 큐에서 데이터 가져오기
@@ -394,6 +400,9 @@ class DataDisplayGUI(QMainWindow):
 
         if data_list is not None:
             df = pd.DataFrame(data_list)
+            #데이터 보간 처리
+            df = df.set_index('timestamp').resample('T').mean().interpolate().reset_index()
+            
             self.plot_data(df, data_types)
         else:
             QMessageBox.information(self, "정보", "선택한 기간에 데이터가 없습니다.")
@@ -461,9 +470,13 @@ class DataDisplayGUI(QMainWindow):
 
         # X축 포맷 지정
         ax1.set_xlabel('Timestamp')
-        ax1.xaxis.set_major_locator(mdates.AutoDateLocator())
+        
+        ax1.xaxis.set_major_locator(mdates.AutoDateLocator()) #자동으로 조정
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))
         plt.xticks(rotation=45)
+        
+        # Y축 포맷 지정
+        ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{x:.2f}'))
 
         # 첫 번째 데이터 타입을 첫 번째 Y축에 플롯
         color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
@@ -476,7 +489,7 @@ class DataDisplayGUI(QMainWindow):
         first_data_type = data_types[0]
         ax = ax1
         color = color_cycle[color_index % len(color_cycle)]
-        line, = ax.plot(df['timestamp'], df[first_data_type], label=first_data_type, color=color)
+        line, = ax.plot(df['timestamp'], df[first_data_type], label=first_data_type, linestyle='-', color=color)
         lines.append(line)
         labels.append(first_data_type)
         ax.set_ylabel(first_data_type, color=color)
@@ -489,7 +502,7 @@ class DataDisplayGUI(QMainWindow):
             y_axes.append(ax)
             ax.spines['right'].set_position(('outward', 60 * (len(y_axes) - 2)))  # Y축 간격 조정
             color = color_cycle[color_index % len(color_cycle)]
-            line, = ax.plot(df['timestamp'], df[data_type], label=data_type, color=color)
+            line, = ax.plot(df['timestamp'], df[data_type], label=data_type, linestyle='-', color=color)
             lines.append(line)
             labels.append(data_type)
             ax.set_ylabel(data_type, color=color)
@@ -497,7 +510,7 @@ class DataDisplayGUI(QMainWindow):
             color_index += 1
 
         # 범례 설정
-        ax1.legend(lines, labels, loc='upper left')
+        fig.legend(lines, labels, loc='upper right', bbox_to_anchor=(1, 1), ncol=1)
 
         # 그리드 및 레이아웃 설정
         plt.title('데이터 그래프')

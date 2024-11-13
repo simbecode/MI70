@@ -67,6 +67,8 @@ class DataReceiver(threading.Thread):
     def run(self):
         logging.info("DataReceiver 스레드가 시작되었습니다.")
         while not self._stop_event.is_set():
+            new_data_received = False  # 새로운 데이터 수신 여부를 확인하는 변수
+
             for sensor_name, ser in self.serial_ports.items():
                 try:
                     if ser.in_waiting > 0:
@@ -78,12 +80,15 @@ class DataReceiver(threading.Thread):
                                     self.latest_data[sensor_name] = parsed_data
                                 self.data_queue.put(parsed_data)
                                 self.data_storage.save_data(parsed_data)
+                                new_data_received = True  # 새로운 데이터가 수신되었음을 표시
                 except Exception as e:
                     logging.error(f"{sensor_name}에서 데이터 수신 중 오류 발생: {e}")
+
             time.sleep(0.1)  # CPU 사용량을 줄이기 위해 잠시 대기
 
-            # 계산값 생성
-            self.generate_calculated_data()
+            # 새로운 데이터가 수신되었을 때만 계산 수행
+            if new_data_received:
+                self.generate_calculated_data()
 
     def parse_data(self, sensor_name, data):
         # print(sensor_name, data)
@@ -127,7 +132,7 @@ class DataReceiver(threading.Thread):
         except Exception as e:
             logging.error(f"{sensor_name} 데이터 파싱 중 오류 발생: {e}")
             return None
-        
+
     def generate_calculated_data(self):
         with self.lock:
             barometer_data = self.latest_data.get('기압계')
@@ -169,7 +174,7 @@ class DataReceiver(threading.Thread):
                 self.data_storage.save_data(calculated_data)
             except Exception as e:
                 logging.error(f"계산 중 오류 발생: {e}")
-
+                
     def stop(self):
         self._stop_event.set()
         # 시리얼 포트 닫기
