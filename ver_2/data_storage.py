@@ -50,6 +50,8 @@ class DataStorage:
             if now_date != self.current_date:
                 # 날짜가 변경되었을 때 처리
                 self.current_date = now_date
+                logging.info(f'{now_date}csv 파일이 생성되었습니다.')
+                
 
             csv_path = self._get_csv_path()
 

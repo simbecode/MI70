@@ -1,6 +1,8 @@
 # data_receiver.py
 
+import os
 import re
+import json
 import threading
 import serial
 import logging
@@ -14,20 +16,24 @@ class DataReceiver(threading.Thread):
     def __init__(self, data_queue, port_settings, data_storage, hs_value, hr_value, temperature_source):
         super().__init__()
         self.data_queue = data_queue
-        self.port_settings = port_settings  # {'기압계': {...}, '습도계': {...}}
+        self.port_settings = port_settings
         self.data_storage = data_storage
         self.hs_value = hs_value
         self.hr_value = hr_value
         self.temperature_source = temperature_source
+        self.user_temperature = temperature_source if isinstance(temperature_source, float) else None  # user_temperature 초기화
         self._stop_event = threading.Event()
         self.serial_ports = {}
         self.latest_data = {}
         self.lock = threading.Lock()
         self.calculator = Calculator(self.hs_value, self.hr_value)
+        self.initial_data_received = False
+        
 
         # 시리얼 포트 매니저 초기화
         self.spm = SerialPortManager()
         self.init_serial_ports()
+        
 
     def init_serial_ports(self):
         for sensor_name, settings in self.port_settings.items():
@@ -61,13 +67,18 @@ class DataReceiver(threading.Thread):
                 )
                 self.serial_ports[sensor_name] = ser
                 logging.info(f"{sensor_name}의 시리얼 포트가 열렸습니다: {settings['port']}")
+                
+                
             except Exception as e:
                 logging.error(f"{sensor_name}의 시리얼 포트를 열 수 없습니다: {e}")
 
     def run(self):
         logging.info("DataReceiver 스레드가 시작되었습니다.")
+        time.sleep(1)  # 데이터 수신을 위한 지연 시간 추가
         while not self._stop_event.is_set():
             new_data_received = False  # 새로운 데이터 수신 여부를 확인하는 변수
+            barometer_received = False  # 기압계 데이터 수신 여부
+            humidity_received = False  # 습도계 데이터 수신 여부
 
             for sensor_name, ser in self.serial_ports.items():
                 try:
@@ -75,19 +86,26 @@ class DataReceiver(threading.Thread):
                         data = ser.readline().decode('utf-8').strip()
                         if data:
                             parsed_data = self.parse_data(sensor_name, data)
+                            # print(parsed_data) 
                             if parsed_data:
                                 with self.lock:
                                     self.latest_data[sensor_name] = parsed_data
                                 self.data_queue.put(parsed_data)
                                 self.data_storage.save_data(parsed_data)
+                                
                                 new_data_received = True  # 새로운 데이터가 수신되었음을 표시
+                                if sensor_name == '기압계':
+                                    barometer_received = True  # 기압계 데이터 수신
+                                elif sensor_name == '습도계':
+                                    humidity_received = True  # 습도계 데이터 수신
+                                
                 except Exception as e:
                     logging.error(f"{sensor_name}에서 데이터 수신 중 오류 발생: {e}")
 
-            time.sleep(0.1)  # CPU 사용량을 줄이기 위해 잠시 대기
+            time.sleep(1)  # CPU 사용량을 줄이기 위해 잠시 대기
 
-            # 새로운 데이터가 수신되었을 때만 계산 수행
-            if new_data_received:
+            # 새로운 데이터가 수신되었거나, 기압계와 습도계 데이터가 모두 수신되었을 때 계산 수행
+            if new_data_received or (barometer_received and humidity_received):
                 self.generate_calculated_data()
 
     def parse_data(self, sensor_name, data):
@@ -138,32 +156,28 @@ class DataReceiver(threading.Thread):
             barometer_data = self.latest_data.get('기압계')
             humidity_data = self.latest_data.get('습도계')
 
-        if barometer_data and humidity_data:
+        if barometer_data:
             try:
                 pressure = barometer_data.get('pressure')
                 temperature_barometer = barometer_data.get('temperature_barometer')
-                temperature_humidity = humidity_data.get('temperature_humidity')
-                humidity = humidity_data.get('humidity')
 
                 # 온도값 결정
                 if self.temperature_source == 'barometer_sensor':
                     temperature = temperature_barometer
                 elif self.temperature_source == 'humidity_sensor':
-                    temperature = temperature_humidity
-                elif isinstance(self.temperature_source, float):
-                    temperature = self.temperature_source
+                    temperature = humidity_data.get('temperature_humidity')
                 else:
-                    temperature = temperature_humidity  # 기본값
+                    temperature = self.user_temperature
 
                 # 계산 수행
-                qnh, qfe, qff = self.calculator.calculate(pressure, temperature, humidity)
+                qnh, qfe, qff = self.calculator.calculate(pressure, temperature)
 
                 calculated_data = {
                     'sensor': '계산값',
                     'pressure': pressure,
                     'temperature_barometer': temperature_barometer,
-                    'temperature_humidity': temperature_humidity,
-                    'humidity': humidity,
+                    'temperature_humidity': humidity_data.get('temperature_humidity') if humidity_data else None,
+                    'temperature': temperature,  # 계산에 사용된 온도값
                     'QNH': qnh,
                     'QFE': qfe,
                     'QFF': qff,
@@ -172,9 +186,12 @@ class DataReceiver(threading.Thread):
 
                 self.data_queue.put(calculated_data)
                 self.data_storage.save_data(calculated_data)
+                
             except Exception as e:
                 logging.error(f"계산 중 오류 발생: {e}")
-                
+        else:
+            logging.warning("기압계 데이터가 없어 계산을 수행할 수 없습니다.")
+            
     def stop(self):
         self._stop_event.set()
         # 시리얼 포트 닫기

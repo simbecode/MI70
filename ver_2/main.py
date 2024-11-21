@@ -28,7 +28,7 @@ def setup_logging():
         dir_path=log_dir,
         when='midnight',    # 매일 자정마다 롤오버
         interval=1,
-        backupCount=30,      # 최근 7개의 로그 파일만 보관 (원하는 값으로 설정)
+        backupCount=3,      # 최근 7개의 로그 파일만 보관 (원하는 값으로 설정)
         encoding='utf-8'
     )
 
@@ -63,7 +63,7 @@ def main():
     spm = SerialPortManager()
     port_settings_gui = PortSettingsGUI(spm)
     if port_settings_gui.exec_() == 0:
-        print("포트 설정이 취소되었습니다.")
+        # print("포트 설정이 취소되었습니다.")
         sys.exit()
 
     port_settings = port_settings_gui.port_settings
@@ -72,7 +72,7 @@ def main():
     temperature_source = port_settings_gui.temperature_source
 
     if not port_settings:
-        print("포트 설정이 없습니다.")
+        # print("포트 설정이 없습니다.")
         sys.exit()
 
     # 데이터 수신 객체 생성
@@ -87,7 +87,7 @@ def main():
     def on_exit():
         data_receiver.stop()
         data_receiver.join()
-        ds.close()
+        ds.close() 
 
     app.aboutToQuit.connect(on_exit)
     sys.exit(app.exec_())

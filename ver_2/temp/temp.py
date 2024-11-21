@@ -1,33 +1,85 @@
-import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt
+import serial
+import threading
+import time
 
-class DynamicFontSizeApp(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.initUI()
 
-    def initUI(self):
-        self.label = QLabel('창 크기에 따라 글꼴 크기가 변경됩니다.', self)
-        self.label.setAlignment(Qt.AlignCenter)
+class SerialCommunicator:
+    def __init__(self, port="COM2", baudrate=4800, parity=serial.PARITY_EVEN,
+                 bytesize=serial.SEVENBITS, stopbits=serial.STOPBITS_ONE, timeout=1):
+        self.port_settings = {
+            "port": port,
+            "baudrate": baudrate,
+            "parity": parity,
+            "bytesize": bytesize,
+            "stopbits": stopbits,
+            "timeout": timeout,
+        }
+        self.ser = None
+        self.running = True
 
-        layout = QVBoxLayout()
-        layout.addWidget(self.label)
-        self.setLayout(layout)
+    def connect(self):
+        """시리얼 포트 연결"""
+        try:
+            self.ser = serial.Serial(**self.port_settings)
+            print(f"Connected to {self.port_settings['port']} successfully.")
+            # 데이터 읽기를 별도의 스레드로 실행
+            threading.Thread(target=self.read_data, daemon=True).start()
+        except serial.SerialException as e:
+            print(f"Serial connection error: {e}")
+        except Exception as e:
+            print(f"Unexpected error: {e}")
 
-        self.setWindowTitle('동적 폰트 크기 조정')
-        self.setGeometry(100, 100, 800, 600)
-        self.show()
+    def send_command(self, command):
+        """명령어 전송"""
+        if self.ser and self.ser.is_open:
+            try:
+                full_command = command.strip() + "\r\n"  # 명령어 끝에 \r\n 추가
+                self.ser.write(full_command.encode('ascii'))
+                print(f"Sent: {command.strip()}")
+            except Exception as e:
+                print(f"Error while sending command: {e}")
+        else:
+            print("Serial port not connected.")
 
-    def resizeEvent(self, event):
-        # 창의 높이에 비례하여 폰트 크기를 설정합니다.
-        new_font_size = min(500, max(20, self.height() // 20))  # 최소 폰트 크기는 20, 최대 폰트 크기는 100으로 제한
-        font = QFont('Arial', new_font_size)
-        self.label.setFont(font)
-        super().resizeEvent(event)
+    def read_data(self):
+        """실시간 데이터 읽기"""
+        while self.running and self.ser and self.ser.is_open:
+            try:
+                if self.ser.in_waiting > 0:
+                    data = self.ser.read(self.ser.in_waiting)
+                    print(f"Received: {data.decode('ascii')}")
+                time.sleep(0.1)  # 100ms 대기
+            except Exception as e:
+                print(f"Error while reading data: {e}")
+                break
 
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    ex = DynamicFontSizeApp()
-    sys.exit(app.exec_())
+    def disconnect(self):
+        """시리얼 포트 닫기"""
+        if self.ser and self.ser.is_open:
+            self.running = False
+            self.ser.close()
+            print("Serial port closed.")
+
+
+def main():
+    print("Starting Serial Communicator...")
+    communicator = SerialCommunicator()
+
+    # 시리얼 포트 연결
+    communicator.connect()
+
+    try:
+        while True:
+            # 사용자 입력 대기
+            command = input("Enter command (or 'exit' to quit): ")
+            if command.lower() == "exit":
+                break
+            communicator.send_command(command)
+    except KeyboardInterrupt:
+        print("\nExiting program.")
+    finally:
+        communicator.disconnect()
+
+
+if __name__ == "__main__":
+    main()

@@ -4,14 +4,14 @@ class Calculator:
     def __init__(self, hs=0.0, hr=0.0):
         self.hs = hs  # HS 값
         self.hr = hr  # HR 값
-        print(f"HS: {self.hs}, HR: {self.hr}")
+        # print(f"HS: {self.hs}, HR: {self.hr}")
         self.L = 0.0065  # 기온 감율(K/m)
         self.T0 = 288.15  # 표준 온도(K)
         self.g = 9.80665  # 중력 가속도(m/s^2)
         self.R = 287.05  # 기체 상수(J/(kg·K))
         self.b = 0.0086  # 기체 상수(J/(kg·K))  
     
-    def calculate(self, pressure, temperature, humidity):
+    def calculate(self, pressure, temperature):
         """QFE, QNH 및 QFF를 계산하는 함수"""
         
         # 1. QFE 계산
@@ -43,5 +43,5 @@ class Calculator:
         qff = qfe * math.exp(exponent)
         
         # 결과 반환 (QFE, QNH, QFF)
-        return round(qfe, 2), round(qnh, 2), round(qff, 2)
+        return round(qnh, 2), round(qfe, 2), round(qff, 2)
     

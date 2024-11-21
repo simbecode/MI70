@@ -56,7 +56,7 @@ class SerialPortManager:
                 logging.info(f"{sensor_name} ({port_name}) 열림. 보드레이트: {baudrate}, 패리티: {parity}, 데이터 비트: {data_bits}, 스탑 비트: {stop_bits}")
             except serial.SerialException as e:
                 logging.error(f"{sensor_name} ({port_name}) 열기에 실패했습니다: {e}")
-                print(f"{sensor_name} ({port_name}) 열기에 실패했습니다: {e}")
+                # print(f"{sensor_name} ({port_name}) 열기에 실패했습니다: {e}")
 
     def close_ports(self):
         for sensor_name, ser in self.serial_connections.items():
