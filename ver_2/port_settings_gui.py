@@ -9,6 +9,12 @@ import serial
 import serial.tools.list_ports
 from password_dialog import PasswordDialog  # PasswordDialog 가져옵니다.
 
+def resource_path(relative_path):
+    """ PyInstaller가 생성한 임시 경로에서 리소스를 가져옴 """
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
 class PortSettingsGUI(QtWidgets.QDialog):
     def __init__(self, spm, config_file=None):
         super().__init__()
@@ -40,8 +46,9 @@ class PortSettingsGUI(QtWidgets.QDialog):
         self.init_ui()
 
     def init_ui(self):
-        # 아이콘 설정 (수정된 부분)
-        self.setWindowIcon(QtGui.QIcon('icon.ico'))
+        # 아이콘 파일 경로를 동적으로 설정
+        icon_path = resource_path("icon.ico")
+        self.setWindowIcon(QtGui.QIcon(icon_path))
         
         self.setWindowTitle("설정")
         layout = QtWidgets.QVBoxLayout()
@@ -125,7 +132,7 @@ class PortSettingsGUI(QtWidgets.QDialog):
             layout.addWidget(group_box)
 
         # Interval 설정 그룹박스 추가 (수정된 부분)
-        interval_group_box = QtWidgets.QGroupBox("Interval 설정")
+        interval_group_box = QtWidgets.QGroupBox("통신유무 주기")
         interval_layout = QtWidgets.QHBoxLayout()
 
         # 기압계 Interval 입력 필드 추가
@@ -384,20 +391,10 @@ class PortSettingsGUI(QtWidgets.QDialog):
                 )
                 logging.info(f"{sensor_name}의 시리얼 포트가 열렸습니다: {settings['port']}")
 
-                # # interval 값 가져오기
-                # interval = settings.get('interval', 60)
-                # print(interval)
-                # 약간의 지연 추가 (필요한 경우)
-                # time.sleep(3)
-                
-                # 센서에 'INTV {interval}' 명령어 전송
-                # command_interval = b'intv ' + str(interval).encode('ascii') + b'\r\n'  # 바이트 배열로 정의
-                # ser.write(command_interval)
-                # logging.info(f"{sensor_name}에 명령어 '{command_interval.decode('ascii').strip()}'를 전송하였습니다.")
-
-                # 센서에 'R' 명령어 전송 (대문자 'R' 사용)
-                ser.write(b'R\r\n')  # 아스키로 전송
-                logging.info(f"{sensor_name}에 명령어 'R'을 전송하였습니다.")
+                # 기압계에만 'R' 명령어 전송
+                if sensor_name == '기압계':
+                    ser.write(b'R\r\n')  # 아스키로 전송
+                    logging.info(f"{sensor_name}에 명령어 'R'을 전송하였습니다.")
 
                 # 시리얼 포트 닫기 (수정된 부분)
                 ser.close()

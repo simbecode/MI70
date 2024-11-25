@@ -18,6 +18,12 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 
+def resource_path(relative_path):
+    """ PyInstaller가 생성한 임시 경로에서 리소스를 가져옴 """
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
 
 class DataDisplayGUI(QMainWindow):
     def __init__(self, data_queue, data_receiver, ds):
@@ -64,7 +70,11 @@ class DataDisplayGUI(QMainWindow):
         
     def init_ui(self):
         self.setWindowTitle("실황 정보")
-        self.setWindowIcon(QIcon('icon.ico'))
+        
+        # 아이콘 파일 경로를 동적으로 설정
+        icon_path = resource_path("icon.ico")
+        self.setWindowIcon(QIcon(icon_path))
+        
         self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
         
         # 창 초기 크기 설정 및 저장
