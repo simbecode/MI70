@@ -133,7 +133,7 @@ class DataDisplayGUI(QMainWindow):
         self.button_temperature.clicked.connect(lambda: self.show_data_selection_window(['temperature_barometer', 'temperature_humidity']))
         self.button_humidity = QPushButton("습도 데이터 조회")
         self.button_humidity.clicked.connect(lambda: self.show_data_selection_window(['humidity']))
-        self.button_q_values = QPushButton("데이터 조회")
+        self.button_q_values = QPushButton("기압 기준 값")
         self.button_q_values.clicked.connect(lambda: self.show_data_selection_window(['QNH', 'QFE', 'QFF']))
         
         button_row1.addWidget(self.button_pressure)
