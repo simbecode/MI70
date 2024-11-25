@@ -3,7 +3,7 @@ import sys
 import json
 import logging
 import time
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtGui import QDoubleValidator, QIntValidator
 import serial
 import serial.tools.list_ports
@@ -40,7 +40,10 @@ class PortSettingsGUI(QtWidgets.QDialog):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowTitle("포트 설정")
+        # 아이콘 설정 (수정된 부분)
+        self.setWindowIcon(QtGui.QIcon('icon.ico'))
+        
+        self.setWindowTitle("설정")
         layout = QtWidgets.QVBoxLayout()
 
         # 사용 가능한 포트 목록 검색하기
@@ -397,8 +400,8 @@ class PortSettingsGUI(QtWidgets.QDialog):
                 logging.info(f"{sensor_name}에 명령어 'R'을 전송하였습니다.")
 
                 # 시리얼 포트 닫기 (수정된 부분)
-                # ser.close()
-                # logging.info(f"{sensor_name}의 시리얼 포트를 닫았습니다.")
+                ser.close()
+                logging.info(f"{sensor_name}의 시리얼 포트를 닫았습니다.")
 
             except Exception as e:
                 logging.error(f"{sensor_name}의 시리얼 포트를 열거나 명령어 전송 중 오류 발생: {e}")

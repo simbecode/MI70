@@ -5,10 +5,10 @@ import json
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
     QPushButton, QMessageBox, QDialog, QFormLayout, QDateTimeEdit, QCheckBox,
-    QComboBox, QGridLayout, QStatusBar
+    QComboBox, QGridLayout, QStatusBar, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QTimer, QDateTime
-from PyQt5.QtGui import QFont, QKeySequence
+from PyQt5.QtGui import QFont, QKeySequence, QIcon
 import pyqtgraph as pg
 from datetime import datetime, timedelta
 import logging
@@ -64,6 +64,8 @@ class DataDisplayGUI(QMainWindow):
         
     def init_ui(self):
         self.setWindowTitle("실황 정보")
+        self.setWindowIcon(QIcon('icon.ico'))
+        self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
         
         # 창 초기 크기 설정 및 저장
         self.resize(600, 400)
@@ -230,16 +232,16 @@ class DataDisplayGUI(QMainWindow):
             
     def adjust_sizes(self, scale_factor):
         """scale_factor에 따라 폰트와 버튼 크기를 비례적으로 조정"""
-        # 폰트 크기 조정
         for widget, initial_font in self.initial_fonts.items():
             font = QFont(initial_font)
             font.setPointSizeF(initial_font.pointSizeF() * scale_factor)
             widget.setFont(font)
 
         # 버튼 크기 조정
-        button_height = int(20 * scale_factor)
+        button_height = int(30 * scale_factor)  # 버튼 높이를 비례적으로 조정
         for button in [self.button_pressure, self.button_temperature, self.button_humidity, self.button_q_values]:
             button.setFixedHeight(button_height)
+            button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # 버튼 크기 자동 조정
 
     def store_initial_fonts(self):
         """초기 폰트를 저장하여 크기 조정 시 기준으로 사용"""
@@ -408,9 +410,9 @@ class DataDisplayGUI(QMainWindow):
         layout.addWidget(data_type_label)
 
         # 체크박스 생성
-        self.checkbox_pressure = QCheckBox("압력")
+        self.checkbox_pressure = QCheckBox("기압")
         self.checkbox_temperature_barometer = QCheckBox("기압계 온도")
-        self.checkbox_temperature_humidity = QCheckBox("습도계 온도")
+        self.checkbox_temperature_humidity = QCheckBox("도계 온도")
         self.checkbox_humidity = QCheckBox("습도")
         self.checkbox_QNH = QCheckBox("QNH")
         self.checkbox_QFE = QCheckBox("QFE")
