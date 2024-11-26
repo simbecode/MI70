@@ -200,14 +200,13 @@ class DataDisplayGUI(QMainWindow):
                 self.qff_unit = settings.get('qff_unit', 'hPa')
                 logging.info(f"단위 설정 로드: QNH - {self.qnh_unit}, QFE - {self.qfe_unit}, QFF - {self.qff_unit}")
 
-                # 센서별 interval 값 로드
-                self.sensor_intervals = {}
-                port_settings = settings.get('port_settings', {})
-                for sensor_name, sensor_settings in port_settings.items():
-                    interval = sensor_settings.get('interval', 60)  # 기본값 60초
-                    self.sensor_intervals[sensor_name] = interval
-                    logging.info(f"{sensor_name}의 interval 값 로드: {interval}초")
-                    
+                # 센서별 interval 값을 하드코딩
+                self.sensor_intervals = {
+                    '기압계': 3600,  # 기압계 기본 interval
+                    '습도계': 3600   # 습도계 기본 interval
+                }
+                # logging.info(f"하드코딩된 interval 값: {self.sensor_intervals}")
+
         except Exception as e:
             logging.error(f"설정 파일을 로드하는 중 오류 발생: {e}")
             # 기본 단위 설정
@@ -215,7 +214,7 @@ class DataDisplayGUI(QMainWindow):
             self.qfe_unit = 'hPa'
             self.qff_unit = 'hPa'
             # 기본 센서 interval 값 설정
-            self.sensor_intervals = {'기압계': 60, '습도계': 60}
+            self.sensor_intervals = {'기압계': 3600, '습도계': 3600}
             
     def convert_unit(self, value, to_unit):
         """hPa 단위를 다른 단위로 변환"""
@@ -228,9 +227,7 @@ class DataDisplayGUI(QMainWindow):
         else:
             logging.warning(f"알 수 없는 단위: {to_unit}")
             return value  # 알 수 없는 단위일 경우 그대로 반환
-
-        
-        
+  
     def resizeEvent(self, event):
         """창 크기 변경 이벤트가 발생할 때 폰트와 버튼 크기를 비례적으로 조정"""
         if self.initial_geometry:
