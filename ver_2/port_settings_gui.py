@@ -28,8 +28,8 @@ class PortSettingsGUI(QtWidgets.QDialog):
         self.qnh_unit = 'hPa'
         self.qfe_unit = 'hPa'
         self.qff_unit = 'hPa'
-        self.barometer_interval = 60  # 기압계 interval 기본값
-        self.humidity_interval = 60   # 습도계 interval 기본값
+        # self.barometer_interval = 60  # 기압계 interval 기본값 (주석 처리)
+        # self.humidity_interval = 60   # 습도계 interval 기본값 (주석 처리)
 
         # 설정 파일 경로 설정
         self.sitech_dir = r'C:\Sitech'  # 설정 파일 디렉토리를 C:\Sitech로 변경
@@ -131,28 +131,28 @@ class PortSettingsGUI(QtWidgets.QDialog):
             group_box.setLayout(form_layout)
             layout.addWidget(group_box)
 
-        # Interval 설정 그룹박스 추가 (수정된 부분)
-        interval_group_box = QtWidgets.QGroupBox("통신유무 주기")
-        interval_layout = QtWidgets.QHBoxLayout()
+        # Interval 설정 그룹박스 제거 (주석 처리)
+        # interval_group_box = QtWidgets.QGroupBox("통신유무 주기")
+        # interval_layout = QtWidgets.QHBoxLayout()
 
-        # 기압계 Interval 입력 필드 추가
-        barometer_interval_label = QtWidgets.QLabel("기압계 Interval (초):")
-        self.barometer_interval_input = QtWidgets.QLineEdit()
-        self.barometer_interval_input.setValidator(QIntValidator(1, 9999))
-        self.barometer_interval_input.setText(str(self.barometer_interval))
-        interval_layout.addWidget(barometer_interval_label)
-        interval_layout.addWidget(self.barometer_interval_input)
+        # # 기압계 Interval 입력 필드 추가
+        # barometer_interval_label = QtWidgets.QLabel("기압계 Interval (초):")
+        # self.barometer_interval_input = QtWidgets.QLineEdit()
+        # self.barometer_interval_input.setValidator(QIntValidator(1, 9999))
+        # self.barometer_interval_input.setText(str(self.barometer_interval))
+        # interval_layout.addWidget(barometer_interval_label)
+        # interval_layout.addWidget(self.barometer_interval_input)
 
-        # 습도계 Interval 입력 필드 추가
-        humidity_interval_label = QtWidgets.QLabel("습도계 Interval (초):")
-        self.humidity_interval_input = QtWidgets.QLineEdit()
-        self.humidity_interval_input.setValidator(QIntValidator(1, 9999))
-        self.humidity_interval_input.setText(str(self.humidity_interval))
-        interval_layout.addWidget(humidity_interval_label)
-        interval_layout.addWidget(self.humidity_interval_input)
+        # # 습도계 Interval 입력 필드 추가
+        # humidity_interval_label = QtWidgets.QLabel("습도계 Interval (초):")
+        # self.humidity_interval_input = QtWidgets.QLineEdit()
+        # self.humidity_interval_input.setValidator(QIntValidator(1, 9999))
+        # self.humidity_interval_input.setText(str(self.humidity_interval))
+        # interval_layout.addWidget(humidity_interval_label)
+        # interval_layout.addWidget(self.humidity_interval_input)
 
-        interval_group_box.setLayout(interval_layout)
-        layout.addWidget(interval_group_box)
+        # interval_group_box.setLayout(interval_layout)
+        # layout.addWidget(interval_group_box)
 
         # 온도값 선택 라디오 버튼 그룹 생성
         temperature_group_box = QtWidgets.QGroupBox("온도값 선택")
@@ -249,7 +249,7 @@ class PortSettingsGUI(QtWidgets.QDialog):
         unit_group_box.setLayout(unit_layout)
         layout.addWidget(unit_group_box)
 
-        # 회사 정보 라벨 추가 (수정된 부분)
+        # 회사 정보 라벨 추가
         company_label = QtWidgets.QLabel("© 2024 에스아이테크. All rights reserved.")
         company_label.setAlignment(QtCore.Qt.AlignCenter)  # 가운데 정렬
         layout.addWidget(company_label)
@@ -280,24 +280,24 @@ class PortSettingsGUI(QtWidgets.QDialog):
                 self.temperature_source = None
 
     def on_run(self):
-        # Interval 값 검증 및 저장 (수정된 부분)
-        barometer_interval_text = self.barometer_interval_input.text()
-        if not barometer_interval_text.isdigit():
-            QtWidgets.QMessageBox.warning(self, "경고", "기압계의 Interval 값은 숫자여야 합니다.")
-            return
-        barometer_interval = int(barometer_interval_text)
-        if barometer_interval <= 0:
-            QtWidgets.QMessageBox.warning(self, "경고", "기압계의 Interval 값은 0보다 커야 합니다.")
-            return
+        # Interval 값 검증 및 저장 코드 주석 처리
+        # barometer_interval_text = self.barometer_interval_input.text()
+        # if not barometer_interval_text.isdigit():
+        #     QtWidgets.QMessageBox.warning(self, "경고", "기압계의 Interval 값은 숫자여야 합니다.")
+        #     return
+        # barometer_interval = int(barometer_interval_text)
+        # if barometer_interval <= 0:
+        #     QtWidgets.QMessageBox.warning(self, "경고", "기압계의 Interval 값은 0보다 커야 합니다.")
+        #     return
 
-        humidity_interval_text = self.humidity_interval_input.text()
-        if not humidity_interval_text.isdigit():
-            QtWidgets.QMessageBox.warning(self, "경고", "습도계의 Interval 값은 숫자여야 합니다.")
-            return
-        humidity_interval = int(humidity_interval_text)
-        if humidity_interval <= 0:
-            QtWidgets.QMessageBox.warning(self, "경고", "습도계의 Interval 값은 0보다 커야 합니다.")
-            return
+        # humidity_interval_text = self.humidity_interval_input.text()
+        # if not humidity_interval_text.isdigit():
+        #     QtWidgets.QMessageBox.warning(self, "경고", "습도계의 Interval 값은 숫자여야 합니다.")
+        #     return
+        # humidity_interval = int(humidity_interval_text)
+        # if humidity_interval <= 0:
+        #     QtWidgets.QMessageBox.warning(self, "경고", "습도계의 Interval 값은 0보다 커야 합니다.")
+        #     return
 
         for sensor, widgets in self.widgets.items():
             port = widgets['port'].currentText()
@@ -318,11 +318,11 @@ class PortSettingsGUI(QtWidgets.QDialog):
                 'stop_bits': stop_bits
             }
 
-        # Interval 값을 각 센서 설정에 추가
-        if '기압계' in self.port_settings:
-            self.port_settings['기압계']['interval'] = barometer_interval
-        if '습도계' in self.port_settings:
-            self.port_settings['습도계']['interval'] = humidity_interval
+        # Interval 값을 각 센서 설정에 추가 (주석 처리)
+        # if '기압계' in self.port_settings:
+        #     self.port_settings['기압계']['interval'] = barometer_interval
+        # if '습도계' in self.port_settings:
+        #     self.port_settings['습도계']['interval'] = humidity_interval
 
         # 현재 선택된 온도값 소스 업데이트
         if self.radio_humidity_sensor.isChecked():
@@ -396,7 +396,7 @@ class PortSettingsGUI(QtWidgets.QDialog):
                     ser.write(b'R\r\n')  # 아스키로 전송
                     logging.info(f"{sensor_name}에 명령어 'R'을 전송하였습니다.")
 
-                # 시리얼 포트 닫기 (수정된 부분)
+                # 시리얼 포트 닫기
                 ser.close()
                 logging.info(f"{sensor_name}의 시리얼 포트를 닫았습니다.")
 
@@ -452,15 +452,15 @@ class PortSettingsGUI(QtWidgets.QDialog):
 
                     port_settings = settings.get('port_settings', {})
 
-                    # Interval 값 로드 (수정된 부분)
-                    if '기압계' in port_settings:
-                        self.barometer_interval = port_settings['기압계'].get('interval', 60)
-                    else:
-                        self.barometer_interval = 60
-                    if '습도계' in port_settings:
-                        self.humidity_interval = port_settings['습도계'].get('interval', 60)
-                    else:
-                        self.humidity_interval = 60
+                    # Interval 값 로드 주석 처리
+                    # if '기압계' in port_settings:
+                    #     self.barometer_interval = port_settings['기압계'].get('interval', 60)
+                    # else:
+                    #     self.barometer_interval = 60
+                    # if '습도계' in port_settings:
+                    #     self.humidity_interval = port_settings['습도계'].get('interval', 60)
+                    # else:
+                    #     self.humidity_interval = 60
 
                     return port_settings
             except Exception as e:
@@ -472,8 +472,8 @@ class PortSettingsGUI(QtWidgets.QDialog):
                 self.qnh_unit = 'hPa'
                 self.qfe_unit = 'hPa'
                 self.qff_unit = 'hPa'
-                self.barometer_interval = 60
-                self.humidity_interval = 60
+                # self.barometer_interval = 60
+                # self.humidity_interval = 60
                 return {}
         else:
             print("설정 파일이 존재하지 않습니다.")
@@ -483,8 +483,8 @@ class PortSettingsGUI(QtWidgets.QDialog):
             self.qnh_unit = 'hPa'
             self.qfe_unit = 'hPa'
             self.qff_unit = 'hPa'
-            self.barometer_interval = 60
-            self.humidity_interval = 60
+            # self.barometer_interval = 60
+            # self.humidity_interval = 60
             return {}
 
     def show(self):
