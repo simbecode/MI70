@@ -81,24 +81,36 @@ class DataReceiver(threading.Thread):
             humidity_received = False  # 습도계 데이터 수신 여부
 
             for sensor_name, ser in self.serial_ports.items():
+                # 시리얼 포트가 None이거나 닫혀 있는 경우 재연결 시도
+                if ser is None or not ser.is_open:
+                    logging.warning(f"{sensor_name}의 시리얼 포트가 닫혀 있습니다. 재연결 시도 중...")
+                    self.reconnect_sensor(sensor_name)
+                    continue  # 다음 센서로 넘어감
+
                 try:
                     if ser.in_waiting > 0:
                         data = ser.readline().decode('utf-8').strip()
                         if data:
+                            logging.info(f"{sensor_name}에서 데이터 수신: {data}")
                             parsed_data = self.parse_data(sensor_name, data)
-                            # print(parsed_data) 
                             if parsed_data:
                                 with self.lock:
                                     self.latest_data[sensor_name] = parsed_data
                                 self.data_queue.put(parsed_data)
                                 self.data_storage.save_data(parsed_data)
-                                
+
                                 new_data_received = True  # 새로운 데이터가 수신되었음을 표시
                                 if sensor_name == '기압계':
                                     barometer_received = True  # 기압계 데이터 수신
                                 elif sensor_name == '습도계':
                                     humidity_received = True  # 습도계 데이터 수신
-                                
+
+                except serial.SerialException:
+                    logging.error(f"{sensor_name}의 시리얼 포트에서 SerialException 발생. 재연결 시도 중...")
+                    ser.close()
+                    self.serial_ports[sensor_name] = None  # 포트를 None으로 설정하여 재연결 시도 가능하게 함
+                    self.reconnect_sensor(sensor_name)  # 재연결 시도
+                    self.notify_gui_sensor_disconnected(sensor_name)  # GUI에 연결 해제 알림
                 except Exception as e:
                     logging.error(f"{sensor_name}에서 데이터 수신 중 오류 발생: {e}")
 
@@ -126,6 +138,7 @@ class DataReceiver(threading.Thread):
                     }
                 else:
                     logging.error(f"{sensor_name} 데이터 형식 오류: {data}")
+                    self.reconnect_sensor(sensor_name)  # 데이터 형식 오류 시 reconnect_sensor 호출
                     return None
             elif sensor_name == '습도계':
                 # 정규 표현식을 사용하여 습도와 온도 값 추출
@@ -201,3 +214,64 @@ class DataReceiver(threading.Thread):
                 logging.info(f"{sensor_name}의 시리얼 포트를 닫았습니다.")
             except Exception as e:
                 logging.error(f"{sensor_name}의 시리얼 포트를 닫는 중 오류 발생: {e}")
+
+    def reconnect_sensor(self, sensor_name):
+        """센서 재연결 및 필요한 경우 명령어 전송"""
+        settings = self.port_settings.get(sensor_name)
+        if settings:
+            try:
+                # 패리티 변환
+                parity_dict = {
+                    'None': serial.PARITY_NONE,
+                    'Even': serial.PARITY_EVEN,
+                    'Odd': serial.PARITY_ODD,
+                    'Mark': serial.PARITY_MARK,
+                    'Space': serial.PARITY_SPACE
+                }
+                parity_value = parity_dict.get(settings['parity'], serial.PARITY_NONE)
+
+                # 스탑 비트 변환
+                stop_bits_dict = {
+                    1: serial.STOPBITS_ONE,
+                    1.5: serial.STOPBITS_ONE_POINT_FIVE,
+                    2: serial.STOPBITS_TWO
+                }
+                stop_bits_value = stop_bits_dict.get(settings['stop_bits'], serial.STOPBITS_ONE)
+
+                # 시리얼 포트 열기
+                ser = serial.Serial(
+                    port=settings['port'],
+                    baudrate=settings['baudrate'],
+                    bytesize=settings['data_bits'],
+                    parity=parity_value,
+                    stopbits=stop_bits_value,
+                    timeout=1
+                )
+                self.serial_ports[sensor_name] = ser
+                logging.info(f"{sensor_name}의 시리얼 포트가 재연결되었습니다: {settings['port']}")
+
+                # 기압계일 때만 'R' 명령어 전송
+                if sensor_name == '기압계':
+                    ser.write(b'R\r\n')  # 아스키로 전송
+                    logging.info(f"{sensor_name}에 명령어 'R'을 전송하였습니다.")
+
+            except Exception as e:
+                logging.error(f"{sensor_name}의 시리얼 포트를 열거나 명령어 전송 중 오류 발생: {e}")
+                self.serial_ports[sensor_name] = None  # 재연결 실패 시 포트를 None으로 설정
+                time.sleep(5)  # 재연결 시도 간격을 두기 위해 잠시 대기
+    def notify_gui_sensor_disconnected(self, sensor_name):
+        """GUI에 센서 연결 해제 알림"""
+        # 이 메서드는 GUI에 연결 해제 알림을 보냅니다.
+        # 예를 들어, 데이터 큐에 특정 메시지를 추가하거나, GUI 객체에 직접 접근하여 색상을 변경할 수 있습니다.
+        self.data_queue.put({'sensor': sensor_name, 'status': 'disconnected'})
+
+    def close_sensor_port(self, sensor_name):
+        """지정된 센서의 시리얼 포트를 닫습니다."""
+        ser = self.serial_ports.get(sensor_name)
+        if ser and ser.is_open:
+            try:
+                ser.close()
+                self.serial_ports[sensor_name] = None  # 포트를 None으로 설정하여 재연결 시도 가능하게 함
+                logging.info(f"{sensor_name}의 시리얼 포트를 닫았습니다.")
+            except Exception as e:
+                logging.error(f"{sensor_name}의 시리얼 포트를 닫는 중 오류 발생: {e}") 

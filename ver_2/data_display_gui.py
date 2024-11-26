@@ -50,6 +50,8 @@ class DataDisplayGUI(QMainWindow):
         # 초기 창 크기를 저장할 변수
         self.initial_geometry = None
 
+        self.barometer_port_closed = False  # 기압계 포트 닫힘 상태를 추적하는 플래그 추가
+
         self.init_ui()
         self.apply_styles()
 
@@ -67,6 +69,10 @@ class DataDisplayGUI(QMainWindow):
         self.time_timer = QTimer()
         self.time_timer.timeout.connect(self.update_current_time)
         self.time_timer.start(1000)  # 1초마다 시간 업데이트
+        
+        self.barometer_reconnect_timer = QTimer()
+        self.barometer_reconnect_timer.timeout.connect(self.send_reconnect_command)
+        self.barometer_reconnect_timer.start(10)  # 1시간마다 타이머 실행
         
     def init_ui(self):
         self.setWindowTitle("실황 정보")
@@ -202,8 +208,8 @@ class DataDisplayGUI(QMainWindow):
 
                 # 센서별 interval 값을 하드코딩
                 self.sensor_intervals = {
-                    '기압계': 3600,  # 기압계 기본 interval
-                    '습도계': 3600   # 습도계 기본 interval
+                    '기압계': 10,  # 기압계 기본 interval
+                    '습도계': 10   # 습도계 기본 interval
                 }
                 # logging.info(f"하드코딩된 interval 값: {self.sensor_intervals}")
 
@@ -214,7 +220,7 @@ class DataDisplayGUI(QMainWindow):
             self.qfe_unit = 'hPa'
             self.qff_unit = 'hPa'
             # 기본 센서 interval 값 설정
-            self.sensor_intervals = {'기압계': 3600, '습도계': 3600}
+            self.sensor_intervals = {'기압계': 10, '습도계': 10}
             
     def convert_unit(self, value, to_unit):
         """hPa 단위를 다른 단위로 변환"""
@@ -399,12 +405,32 @@ class DataDisplayGUI(QMainWindow):
                 if time_diff > timeout:
                     # 타임아웃 시간 이상 데이터가 수신되지 않으면 연결 끊김으로 간주
                     self.update_sensor_status(sensor, connected=False)
+                    if sensor == '기압계' and not self.barometer_port_closed:
+                        # 기압계 포트 연결을 닫고 플래그 설정
+                        self.close_port_connection(sensor)  # 포트 연결 닫기 함수 호출
+                        self.barometer_port_closed = True  # 포트가 닫혔음을 기록
                 else:
                     self.update_sensor_status(sensor, connected=True)
             else:
                 # 데이터가 한 번도 수신되지 않은 경우 연결 끊김으로 간주
                 self.update_sensor_status(sensor, connected=False)
-                
+                if sensor == '기압계' and not self.barometer_port_closed:
+                    # 기압계 포트 연결을 닫고 플래그 설정
+                    self.close_port_connection(sensor)  # 포트 연결 닫기 함수 호출
+                    self.barometer_port_closed = True  # 포트가 닫혔음을 기록
+
+    def close_port_connection(self, sensor):
+        """센서의 포트 연결을 닫는 함수"""
+        if sensor == '기압계':
+            # 기압계 포트 닫기 로직 추가
+            logging.info("기압계 포트 연결을 닫습니다.")
+            if self.data_receiver:
+                self.data_receiver.close_sensor_port(sensor)
+        elif sensor == '습도계':
+            # 습도계 포트 닫기 로직 추가
+            logging.info("습도계 포트 연결을 닫습니다.")
+            # 실제 포트 닫기 코드 추가
+
     def show_data_selection_window(self, default_selected_data_types):
         dialog = QDialog(self)
         dialog.setWindowTitle("데이터 선택")
@@ -744,6 +770,13 @@ class DataDisplayGUI(QMainWindow):
                 widget.setFont(QFont())
             self.initial_fonts[widget] = widget.font()
             
+    def send_reconnect_command(self):
+        """기압계 센서에 재연결 명령어를 전송"""
+        if '기압계' in self.connection_status and not self.connection_status['기압계']:
+            # 기압계 센서가 연결 끊김 상태일 때만 명령어 전송
+            self.data_receiver.reconnect_sensor('기압계')  # 'r' 명령어 전송
+            
+
             
 # 테스트 코드 (단독 실행 시)
 if __name__ == "__main__":
