@@ -91,7 +91,7 @@ class DataReceiver(threading.Thread):
                     if ser.in_waiting > 0:
                         data = ser.readline().decode('utf-8').strip()
                         if data:
-                            logging.info(f"{sensor_name}에서 데이터 수신: {data}")
+                            # logging.info(f"{sensor_name}에서 데이터 수신: {data}")
                             parsed_data = self.parse_data(sensor_name, data)
                             if parsed_data:
                                 with self.lock:
@@ -259,6 +259,7 @@ class DataReceiver(threading.Thread):
                 logging.error(f"{sensor_name}의 시리얼 포트를 열거나 명령어 전송 중 오류 발생: {e}")
                 self.serial_ports[sensor_name] = None  # 재연결 실패 시 포트를 None으로 설정
                 time.sleep(5)  # 재연결 시도 간격을 두기 위해 잠시 대기
+                
     def notify_gui_sensor_disconnected(self, sensor_name):
         """GUI에 센서 연결 해제 알림"""
         # 이 메서드는 GUI에 연결 해제 알림을 보냅니다.

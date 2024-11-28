@@ -72,7 +72,7 @@ class DataDisplayGUI(QMainWindow):
         
         self.barometer_reconnect_timer = QTimer()
         self.barometer_reconnect_timer.timeout.connect(self.send_reconnect_command)
-        self.barometer_reconnect_timer.start(10)  # 1시간마다 타이머 실행
+        self.barometer_reconnect_timer.start(1000)  # 1초마다 타이머 실행
         
     def init_ui(self):
         self.setWindowTitle("실황 정보")
