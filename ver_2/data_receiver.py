@@ -275,3 +275,6 @@ class DataReceiver(threading.Thread):
                 logging.info(f"{sensor_name}의 시리얼 포트를 닫았습니다.")
             except Exception as e:
                 logging.error(f"{sensor_name}의 시리얼 포트를 닫는 중 오류 발생: {e}") 
+                
+                
+                

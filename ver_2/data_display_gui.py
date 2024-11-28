@@ -445,7 +445,7 @@ class DataDisplayGUI(QMainWindow):
         # 체크박스 생성
         self.checkbox_pressure = QCheckBox("기압")
         self.checkbox_temperature_barometer = QCheckBox("기압계 온도")
-        self.checkbox_temperature_humidity = QCheckBox("도계 온도")
+        self.checkbox_temperature_humidity = QCheckBox("습도계 온도")
         self.checkbox_humidity = QCheckBox("습도")
         self.checkbox_QNH = QCheckBox("QNH")
         self.checkbox_QFE = QCheckBox("QFE")
