@@ -96,21 +96,38 @@ class DataDisplayGUI(QMainWindow):
         self.main_layout = QVBoxLayout()
         main_widget.setLayout(self.main_layout)
 
+        # 폰트 설정
+        custom_font = QFont("나눔스퀘어_ac")
+
         # 데이터 표시를 위한 레이블 생성
         self.label_pressure = QLabel("기압(hPa):")
+        self.label_pressure.setFont(custom_font)  # 폰트 설정
         self.value_pressure = QLabel("-")
+        self.value_pressure.setFont(custom_font)  # ���트 설정
         self.label_temperature_barometer = QLabel("기압계 온도(°C):")
+        self.label_temperature_barometer.setFont(custom_font)  # 폰트 설정
         self.value_temperature_barometer = QLabel("-")
+        self.value_temperature_barometer.setFont(custom_font)  # 폰트 설정
         self.label_temperature_humidity = QLabel("온도(°C):")
+        self.label_temperature_humidity.setFont(custom_font)  # 폰트 설정
         self.value_temperature_humidity = QLabel("-")
+        self.value_temperature_humidity.setFont(custom_font)  # 폰트 설정
         self.label_humidity = QLabel("습도(%):")
+        self.label_humidity.setFont(custom_font)  # 폰트 설정
         self.value_humidity = QLabel("-")
+        self.value_humidity.setFont(custom_font)  # 폰트 설정
         self.label_QNH = QLabel("QNH:")
+        self.label_QNH.setFont(custom_font)  # 폰트 설정
         self.value_QNH = QLabel("-")
+        self.value_QNH.setFont(custom_font)  # 폰트 설정
         self.label_QFE = QLabel("QFE:")
+        self.label_QFE.setFont(custom_font)  # 폰트 설정
         self.value_QFE = QLabel("-")
+        self.value_QFE.setFont(custom_font)  # 폰트 설정
         self.label_QFF = QLabel("QFF:")
+        self.label_QFF.setFont(custom_font)  # 폰트 설정
         self.value_QFF = QLabel("-")
+        self.value_QFF.setFont(custom_font)  # 폰트 설정
 
         # 데이터 표시 레이아웃 설정
         grid_layout = QHBoxLayout()
@@ -139,26 +156,40 @@ class DataDisplayGUI(QMainWindow):
         self.main_layout.addLayout(grid_layout)
 
         # 버튼 추가
-        button_layout = QVBoxLayout()  # 수직 레이아웃으로 변경
-        button_row1 = QHBoxLayout()  # 첫 번째 행 레이아웃
-        button_row2 = QHBoxLayout()  # 두 번째 행 레이아웃
-
         self.button_pressure = QPushButton("기압 데이터 조회")
+        self.button_pressure.setFont(custom_font)  # 폰트 설정
         self.button_pressure.clicked.connect(lambda: self.show_data_selection_window(['pressure']))
         self.button_temperature = QPushButton("온도 데이터 조회")
+        self.button_temperature.setFont(custom_font)  # 폰트 설정
         self.button_temperature.clicked.connect(lambda: self.show_data_selection_window(['temperature_barometer', 'temperature_humidity']))
         self.button_humidity = QPushButton("습도 데이터 조회")
+        self.button_humidity.setFont(custom_font)  # 폰트 설정
         self.button_humidity.clicked.connect(lambda: self.show_data_selection_window(['humidity']))
         self.button_q_values = QPushButton("기압 기준 값")
+        self.button_q_values.setFont(custom_font)  # 폰트 설정
         self.button_q_values.clicked.connect(lambda: self.show_data_selection_window(['QNH', 'QFE', 'QFF']))
-        
-        button_row1.addWidget(self.button_pressure)
-        button_row1.addWidget(self.button_temperature)
-        button_row2.addWidget(self.button_humidity)
-        button_row2.addWidget(self.button_q_values)
 
-        button_layout.addLayout(button_row1)  # 첫 번째 행 추가
-        button_layout.addLayout(button_row2)  # 두 번째 행 추가
+        # 버튼 폰트 크기 조정
+        small_font = QFont(custom_font)
+        small_font.setPointSize(5)  # 원하는 작은 크기로 설정
+
+        self.button_pressure.setFont(small_font)
+        self.button_temperature.setFont(small_font)
+        self.button_humidity.setFont(small_font)
+        self.button_q_values.setFont(small_font)
+
+        # 버튼 크기 조정
+        # button_height = 10  # 버튼 높이 설정
+        # button_width = 120  # 버튼 너비 설정
+        # for button in [self.button_pressure, self.button_temperature, self.button_humidity, self.button_q_values]:
+        #     button.setFixedSize(button_width, button_height)
+
+        # 버튼을 가로로 정렬
+        button_layout = QHBoxLayout()  # 수평 레이아웃으로 변경
+        button_layout.addWidget(self.button_pressure)
+        button_layout.addWidget(self.button_temperature)
+        button_layout.addWidget(self.button_humidity)
+        button_layout.addWidget(self.button_q_values)
         self.main_layout.addLayout(button_layout)
 
         # 상태바 생성 및 추가
@@ -197,6 +228,35 @@ class DataDisplayGUI(QMainWindow):
         self.store_initial_fonts()
         self.initial_geometry = self.geometry()
         
+    def update_sensor_status(self, sensor, connected):
+        """
+        센서 연결 상태(connected=True/False)에 따라 
+        해당 센서의 값 표시 및 글자 색상(UI)를 업데이트.
+        """
+        if sensor == '기압계':
+            if connected:
+                # 정상 연결: 파란색, 기존 값 유지 (값은 update_display에서 계속 업데이트)
+                self.value_pressure.setStyleSheet("color: blue;")
+                self.value_temperature_barometer.setStyleSheet("color: blue;")
+            else:
+                # 연결 해제: 적색, 값은 '-'로 표시
+                self.value_pressure.setText('-')
+                self.value_temperature_barometer.setText('-')
+                self.value_pressure.setStyleSheet("color: red;")
+                self.value_temperature_barometer.setStyleSheet("color: red;")
+
+        elif sensor == '습도계':
+            if connected:
+                # 정상 연결: 파란색, 기존 값 유지
+                self.value_temperature_humidity.setStyleSheet("color: blue;")
+                self.value_humidity.setStyleSheet("color: blue;")
+            else:
+                # 연결 해제: 적색, 값은 '-'로 표시
+                self.value_temperature_humidity.setText('-')
+                self.value_humidity.setText('-')
+                self.value_temperature_humidity.setStyleSheet("color: red;")
+                self.value_humidity.setStyleSheet("color: red;")
+                
     def load_unit_settings(self):
         try:
             with open(self.settings_file, 'r', encoding='utf-8') as f:
@@ -206,7 +266,6 @@ class DataDisplayGUI(QMainWindow):
                 self.qff_unit = settings.get('qff_unit', 'hPa')
                 logging.info(f"단위 설정 로드: QNH - {self.qnh_unit}, QFE - {self.qfe_unit}, QFF - {self.qff_unit}")
 
-                # 센서별 interval 값을 하드코딩
                 self.sensor_intervals = {
                     '기압계': 10,  # 기압계 기본 interval
                     '습도계': 10   # 습도계 기본 interval
@@ -269,7 +328,7 @@ class DataDisplayGUI(QMainWindow):
             self.initial_fonts[widget] = widget.font()
 
     def apply_styles(self):
-        # 스타일시트 문자열 작성
+        # 스타일시트 문자열 성
         style_sheet = """
         QMainWindow {
             background-color: #f0f0f0;
@@ -283,13 +342,13 @@ class DataDisplayGUI(QMainWindow):
             color: #0000ff;
         }
         QPushButton {
-            background-color: #4CAF50;
-            color: white;
+            background-color: #f0f0f0;
+            color: #000000;
             border-radius: 5px;
-            padding: 10px;
+            padding: 1px;
         }
         QPushButton:hover {
-            background-color: #45a049;
+            background-color: #d3d3d3;
         }
         """
         # 스타일시트 적용
@@ -310,114 +369,202 @@ class DataDisplayGUI(QMainWindow):
     def update_current_time(self):
         current_time = QDateTime.currentDateTime().toString("yyyy-MM-dd hh:mm:ss")
         self.current_time_label.setText(current_time)
+        self.current_time_label.setFont(QFont("나눔스퀘어_ac ExtraBold", 20))
 
     def update_data(self):
         # 데이터 큐에서 데이터 가져오기
         while not self.data_queue.empty():
             data = self.data_queue.get()
+            # print("[update_data] dequeued data:", data)
             self.handle_new_data(data)
+            
 
     def handle_new_data(self, data):
+        """
+        큐에서 전달된 데이터(센서 측정값, 포트 상태 등)를 받아,
+        최신 데이터로 갱신하고 UI를 업데이트하는 함수.
+        """
+
+        # 1) sensor와 timestamp, status를 꺼냄
         sensor = data.get('sensor')
-        if sensor:
+        status = data.get('status', 'valid')  # default: 'valid'
+        new_ts_str = data.get('timestamp')    # 새로 들어온 데이터의 타임스탬프 (문자열)
+
+        # sensor가 없거나, 우리가 관심 없는 센서면 무시
+        if sensor not in ('기압계', '습도계','계산값'):
+            return
+
+        # 2) 만약 'port_disconnected' 같 상태라면, 바로 처리
+        if status == 'port_disconnected':
+            # 예: 포트가 해제된 경우 즉시 '-' 표시, 이전 데이터 삭제
+            self.disconnect_sensor_immediately(sensor)
+            return
+
+        # 3) 정상 or 기타 상태의 데이터인 경우 → 이전 데이터와 타임스탬프 비교
+        old_data = self.latest_data.get(sensor)
+        old_ts_str = old_data.get('timestamp') if old_data else None
+
+        # (A) 새 데이터에 timestamp가 없는 경우 → 그냥 로그 찍고 반환할 수도 있음
+        if not new_ts_str:
+            # timestamp 자체가 없으면, 일단 저장을 안 하거나 default로 처리
+            logging.warning(f"New data for {sensor} has no timestamp! Data={data}")
+            return
+
+        # (B) 이전 데이터의 timestamp가 없는 경우 → (최초 데이터, 혹은 None)
+        if not old_ts_str:
+            # 이전 데이터가 없었거나 timestamp가 없었다면,
+            # 그냥 '새 데이터'를 받아들이고 진행
             self.latest_data[sensor] = data
             self.connection_status[sensor] = datetime.now()
+            # UI 업데이트
+            self.update_display()
+            return
 
-        # 데이터 업데이트
-        self.update_display()
+        # (C) 이제 둘 다 문자열이라면 strptime으로 비교 가능
+        try:
+            new_ts = datetime.strptime(new_ts_str, '%Y-%m-%d %H:%M:%S')
+            old_ts = datetime.strptime(old_ts_str, '%Y-%m-%d %H:%M:%S')
+        except (ValueError, TypeError) as e:
+            # 만약 파싱 실패하면 -> 로그 찍고 그냥 새 데이터로 덮어쓸 수도 있음
+            logging.error(f"Timestamp parse error: {e}, new_ts={new_ts_str}, old_ts={old_ts_str}")
+            self.latest_data[sensor] = data
+            self.connection_status[sensor] = datetime.now()
+            self.update_display()
+            return
 
+        # (D) 타임스탬프 비교
+        if new_ts <= old_ts:
+            # 더 과거 데이터라면 무시하거나 로그만 찍음
+            # logging.info(f"Ignored old (or same) data for {sensor}. old_ts={old_ts_str}, new_ts={new_ts_str}")
+            return
+        else:
+            # 정말 '새로운' 데이터이므로 업데이트
+            self.latest_data[sensor] = data
+            self.connection_status[sensor] = datetime.now()
+            self.update_display()
+ 
+    def disconnect_sensor_immediately(self, sensor):
+        """
+        물리적으로 포트가 해제된 센서에 대해
+        1) 값은 '-'로 표시
+        2) 이전 latest_data 제거
+        3) 적색 등으로 표시
+        """
+        # 1) 값 '-' 표시
+        if sensor == '기압계':
+            self.value_pressure.setText('-')
+            self.value_temperature_barometer.setText('-')
+            # 색상도 빨강
+            self.value_pressure.setStyleSheet("color: red;")
+            self.value_temperature_barometer.setStyleSheet("color: red;")
+
+        elif sensor == '습도계':
+            self.value_temperature_humidity.setText('-')
+            self.value_humidity.setText('-')
+            self.value_temperature_humidity.setStyleSheet("color: red;")
+            self.value_humidity.setStyleSheet("color: red;")
+
+        # 2) self.latest_data에서 제거
+        if sensor in self.latest_data:
+            del self.latest_data[sensor]
+
+        # 3) 마지막 수시각도 제거 or None 처리
+        if sensor in self.connection_status:
+            del self.connection_status[sensor] 
+ 
+ 
     def update_display(self):
+        def format_float(value, default="-"):
+            """
+            숫자 value를 받아 소수점 둘째자리까지 문자열로 변환합니다.
+            변환 불가능하거나 None/'-'인 경우 default 문자열을 반환합니다.
+            """
+            if value is None or value == '-':
+                return default
+            try:
+                return f"{float(value):.2f}"
+            except (ValueError, TypeError):
+                return default
+                
         # 최신 데이터 가져오기
         calc_data = self.latest_data.get('계산값', {})
         barometer_data = self.latest_data.get('기압계', {})
         humidity_data = self.latest_data.get('습도계', {})
-        
-        # 기압계 온도 표시
-        temperature_barometer = barometer_data.get('temperature_barometer', '-')
-        self.value_temperature_barometer.setText(str(temperature_barometer))
 
-        # 기압계 기압값 표시
-        barometer_pressure = barometer_data.get('pressure', '-')
-        self.value_pressure.setText(str(barometer_pressure))
-        
-        # 습도계 온도 표시
-        temperature_humidity = humidity_data.get('temperature_humidity', '-')
-        self.value_temperature_humidity.setText(str(temperature_humidity))
-        
-        # 습도 표시
-        self.value_humidity.setText(str(humidity_data.get('humidity', '-')))
+        # --- 1) 기압계 온도(temperature_barometer) ---
+        barometer_temp = barometer_data.get('temperature_barometer')
+        # 헬퍼 함수로 2자리 소수점 변환
+        self.value_temperature_barometer.setText(format_float(barometer_temp))
 
-        # QNH, QFE, QFF 값 변환 및 표시
-        qnh = calc_data.get('QNH')
-        qfe = calc_data.get('QFE')
-        qff = calc_data.get('QFF')
+        # --- 2) 기압계 기압(pressure) ---
+        barometer_pressure = barometer_data.get('pressure')
+        self.value_pressure.setText(format_float(barometer_pressure))
+
+        # --- 3) 습도계 온도(temperature_humidity) ---
+        humidity_temp = humidity_data.get('temperature_humidity')
+        self.value_temperature_humidity.setText(format_float(humidity_temp))
+
+        # --- 4) 습도(humidity) ---
+        humidity = humidity_data.get('humidity')
+        self.value_humidity.setText(format_float(humidity))
+
+        # --- 5) QNH, QFE, QFF (단위 변환 후 소수점 2자리) ---
+        qnh = calc_data.get('QNH')  
+        qfe = calc_data.get('QFE')  
+        qff = calc_data.get('QFF')  
 
         if qnh is not None:
-            qnh_converted = self.convert_unit(qnh, self.qnh_unit)
-            self.value_QNH.setText(f"{qnh_converted:.2f} {self.qnh_unit}")
+            qnh_converted = self.convert_unit(qnh, self.qnh_unit)  
+            self.value_QNH.setText(f"{format_float(qnh_converted, default='-')} {self.qnh_unit}")
         else:
             self.value_QNH.setText('-')
 
         if qfe is not None:
             qfe_converted = self.convert_unit(qfe, self.qfe_unit)
-            self.value_QFE.setText(f"{qfe_converted:.2f} {self.qfe_unit}")
+            self.value_QFE.setText(f"{format_float(qfe_converted, default='-')} {self.qfe_unit}")
         else:
             self.value_QFE.setText('-')
 
         if qff is not None:
             qff_converted = self.convert_unit(qff, self.qff_unit)
-            self.value_QFF.setText(f"{qff_converted:.2f} {self.qff_unit}")
+            self.value_QFF.setText(f"{format_float(qff_converted, default='-')} {self.qff_unit}")
         else:
             self.value_QFF.setText('-')
-            
-    def update_sensor_status(self, sensor, connected):
-        """센서 상태 레이블을 업데이트"""
+    
+    def mark_old_data_as_red(self, sensor):
         if sensor == '기압계':
-            if connected:
-                # self.label_barometer_status.setText("기압계 상태: 연결됨")
-                self.value_pressure.setStyleSheet("color: blue;")
-                self.value_temperature_barometer.setStyleSheet("color: blue;")
-            else:
-                # self.label_barometer_status.setText("기압계 상태: 연결 안됨")
-                self.value_pressure.setStyleSheet("color: red;")
-                self.value_temperature_barometer.setStyleSheet("color: red;")
-                
+            self.value_pressure.setStyleSheet("color: red;")
+            self.value_temperature_barometer.setStyleSheet("color: red;")
         elif sensor == '습도계':
-            if connected:
-                # self.label_humidity_status.setText("습도계 상태: 연결됨")
-                self.value_temperature_humidity.setStyleSheet("color: blue;")
-                self.value_humidity.setStyleSheet("color: blue;")
-            else:
-                # self.label_humidity_status.setText("습도계 상태: 연결 안됨")
-                self.value_temperature_humidity.setStyleSheet("color: red;")
-                self.value_humidity.setStyleSheet("color: red;")
-                
-    def check_sensor_status(self):
-        """센서 연결 상태를 확인하고, 연결 상태에 따라 레이블 색상을 변경"""
+            self.value_temperature_humidity.setStyleSheet("color: red;")
+            self.value_humidity.setStyleSheet("color: red;")
+
+    def mark_data_as_normal(self, sensor):
+        if sensor == '기압계':
+            self.value_pressure.setStyleSheet("color: blue;")
+            self.value_temperature_barometer.setStyleSheet("color: blue;")
+        elif sensor == '습도계':
+            self.value_temperature_humidity.setStyleSheet("color: blue;")
+            self.value_humidity.setStyleSheet("color: blue;")
+            
+            
+    def check_sensor_status(self):       
         current_time = datetime.now()
         for sensor in ['기압계', '습도계']:
             last_received = self.connection_status.get(sensor)
             if last_received:
                 time_diff = (current_time - last_received).total_seconds()
-                # 센서의 interval 값에 따라 타임아웃 시간 결정 (1.5배)
-                sensor_interval = self.sensor_intervals.get(sensor, 60)
-                timeout = sensor_interval * 1.3
-                if time_diff > timeout:
-                    # 타임아웃 시간 이상 데이터가 수신되지 않으면 연결 끊김으로 간주
-                    self.update_sensor_status(sensor, connected=False)
-                    if sensor == '기압계' and not self.barometer_port_closed:
-                        # 기압계 포트 연결을 닫고 플래그 설정
-                        self.close_port_connection(sensor)  # 포트 연결 닫기 함수 호출
-                        self.barometer_port_closed = True  # 포트가 닫혔음을 기록
+
+                if time_diff > 60:
+                    # ★ 1분 이상  데이터 없음 → 적색 표시 (값은 그대로 유지)
+                    self.mark_old_data_as_red(sensor)
                 else:
-                    self.update_sensor_status(sensor, connected=True)
+                    # 데이터가 정상적으로 어오고 있음 → 파란색(등) 표시
+                    self.mark_data_as_normal(sensor)
             else:
-                # 데이터가 한 번도 수신되지 않은 경우 연결 끊김으로 간주
-                self.update_sensor_status(sensor, connected=False)
-                if sensor == '기압계' and not self.barometer_port_closed:
-                    # 기압계 포트 연결을 닫고 플래그 설정
-                    self.close_port_connection(sensor)  # 포트 연결 닫기 함수 호출
-                    self.barometer_port_closed = True  # 포트가 닫혔음을 기록
+                # 아직 한 번도 데이터를 못 받았다면 (또는 reset됨)
+                # 여기서는 그냥 적색으로 표시 or '-' 로 표할 수도 있음
+                self.mark_data_as_red(sensor)
 
     def close_port_connection(self, sensor):
         """센서의 포트 연결을 닫는 함수"""
@@ -725,7 +872,7 @@ class DataDisplayGUI(QMainWindow):
             self.resize(self.initial_geometry.width(), self.initial_geometry.height())  # 초기 크기로 복원
 
     def adjust_font_sizes(self, scale_factor=1.0):
-        # 레이블과 버튼의 폰트 크기를 조절
+        # 레블과 버튼의 폰트 크기를 조절
         # print(f"Adjusting font sizes with scale factor: {scale_factor}")
         
         # 초기 폰트를 기반으로 폰트 크기 조절

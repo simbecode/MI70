@@ -1,3 +1,5 @@
+# port_settings_gui.py
+
 import os
 import sys
 import json
@@ -194,18 +196,22 @@ class PortSettingsGUI(QtWidgets.QDialog):
         hs_hr_layout = QtWidgets.QHBoxLayout()
 
         # HS 입력 필드 추가
-        hs_label = QtWidgets.QLabel("HS 값:")
+        # hs_label = QtWidgets.QLabel("QFE height")
+        hs_label = QtWidgets.QLabel("센서의 높이(QFE height)")
         self.hs_input = QtWidgets.QLineEdit()
         self.hs_input.setValidator(QDoubleValidator(0.0001, 9999.0, 4))  # 0보다 큰 승수만 입력 가능
         self.hs_input.setText(str(self.hs_value))
+        self.hs_input.setMaximumWidth(100)  # 입력값 텍스트창 가로크기를 최소화로 설정
         hs_hr_layout.addWidget(hs_label)
         hs_hr_layout.addWidget(self.hs_input)
 
         # HR 입력 필드 추가
-        hr_label = QtWidgets.QLabel("HR 값:")
+        hr_label = QtWidgets.QLabel("측정 지역의 높이(QNH height)")
+        # hr_label = QtWidgets.QLabel("QNH height")
         self.hr_input = QtWidgets.QLineEdit()
         self.hr_input.setValidator(QDoubleValidator(0.0001, 9999.0, 4))  # 0보다 큰 승수만 입력 가능
         self.hr_input.setText(str(self.hr_value))
+        self.hr_input.setMaximumWidth(100)  # 입력값 텍스트창 가로크기를 최소화로 설정
         hs_hr_layout.addWidget(hr_label)
         hs_hr_layout.addWidget(self.hr_input)
 

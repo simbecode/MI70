@@ -1,3 +1,4 @@
+
 # password_dialog.py
 
 import sys
@@ -50,3 +51,5 @@ if __name__ == "__main__":
     else:
         print("인증 실패")
     sys.exit()
+
+# '''

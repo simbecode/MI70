@@ -1,3 +1,4 @@
+
 # serial_port_manager.py
 
 import logging

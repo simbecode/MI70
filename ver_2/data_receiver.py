@@ -1,3 +1,4 @@
+
 # data_receiver.py
 
 import os
@@ -10,6 +11,7 @@ from datetime import datetime
 from calculator import Calculator
 from serial_port_manager import SerialPortManager
 from calculator import Calculator
+from datetime import datetime
 import time
 
 class DataReceiver(threading.Thread):
@@ -74,7 +76,7 @@ class DataReceiver(threading.Thread):
 
     def run(self):
         logging.info("DataReceiver 스레드가 시작되었습니다.")
-        time.sleep(1)  # 데이터 수신을 위한 지연 시간 추가
+        time.sleep(0.3)  # 데이터 수신을 위한 지연 시간 추가
         while not self._stop_event.is_set():
             new_data_received = False  # 새로운 데이터 수신 여부를 확인하는 변수
             barometer_received = False  # 기압계 데이터 수신 여부
@@ -107,6 +109,7 @@ class DataReceiver(threading.Thread):
 
                 except serial.SerialException:
                     logging.error(f"{sensor_name}의 시리얼 포트에서 SerialException 발생. 재연결 시도 중...")
+                    self.data_queue.put({'sensor': sensor_name, 'status': 'port_disconnected'})
                     ser.close()
                     self.serial_ports[sensor_name] = None  # 포트를 None으로 설정하여 재연결 시도 가능하게 함
                     self.reconnect_sensor(sensor_name)  # 재연결 시도
@@ -114,7 +117,7 @@ class DataReceiver(threading.Thread):
                 except Exception as e:
                     logging.error(f"{sensor_name}에서 데이터 수신 중 오류 발생: {e}")
 
-            time.sleep(1)  # CPU 사용량을 줄이기 위해 잠시 대기
+            time.sleep(0.3)  # CPU 사용량을 줄이기 위해 잠시 대기
 
             # 새로운 데이터가 수신되었거나, 기압계와 습도계 데이터가 모두 수신되었을 때 계산 수행
             if new_data_received or (barometer_received and humidity_received):
@@ -130,12 +133,13 @@ class DataReceiver(threading.Thread):
                     pressure = float(parts[0])
                     temperature = float(parts[1])
                     # print(pressure, temperature)
-                    return {
+                    parsed = {
                         'sensor': '기압계',
                         'pressure': pressure,
                         'temperature_barometer': temperature,
                         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     }
+                    return parsed
                 else:
                     logging.error(f"{sensor_name} 데이터 형식 오류: {data}")
                     self.reconnect_sensor(sensor_name)  # 데이터 형식 오류 시 reconnect_sensor 호출
@@ -148,12 +152,14 @@ class DataReceiver(threading.Thread):
                 if humidity_match and temperature_match:
                     humidity = float(humidity_match.group(1))
                     temperature = float(temperature_match.group(1))
-                    return {
-                        'sensor': '습도계',
-                        'humidity': humidity,
-                        'temperature_humidity': temperature,
-                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    }
+                    parsed = {
+                    'sensor': '습도계',
+                    'humidity': humidity,
+                    'temperature_humidity': temperature,
+                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                }
+                    return parsed
+                
                 else:
                     logging.error(f"{sensor_name} 데이터 형식 오류: {data}")
                     return None
@@ -258,7 +264,7 @@ class DataReceiver(threading.Thread):
             except Exception as e:
                 logging.error(f"{sensor_name}의 시리얼 포트를 열거나 명령어 전송 중 오류 발생: {e}")
                 self.serial_ports[sensor_name] = None  # 재연결 실패 시 포트를 None으로 설정
-                time.sleep(5)  # 재연결 시도 간격을 두기 위해 잠시 대기
+                time.sleep(10)  # 재연결 시도 간격을 두기 위해 잠시 대기
                 
     def notify_gui_sensor_disconnected(self, sensor_name):
         """GUI에 센서 연결 해제 알림"""
@@ -276,6 +282,4 @@ class DataReceiver(threading.Thread):
                 logging.info(f"{sensor_name}의 시리얼 포트를 닫았습니다.")
             except Exception as e:
                 logging.error(f"{sensor_name}의 시리얼 포트를 닫는 중 오류 발생: {e}") 
-                
-                
                 

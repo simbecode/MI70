@@ -44,4 +44,3 @@ class Calculator:
         
         # 결과 반환 (QFE, QNH, QFF)
         return round(qnh, 2), round(qfe, 2), round(qff, 2)
-    
